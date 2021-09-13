@@ -1,5 +1,5 @@
-Init
-=====
+# Init
+
 
 ```
 docker volume create node-ipc
@@ -25,8 +25,7 @@ docker run \
   --port 3001
 ```
 
-API
-===
+# API
 
 ## create wallet
 
