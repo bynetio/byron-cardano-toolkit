@@ -1,7 +1,8 @@
 # Byron Cardano Toolkit
 This repository is a set of codebases that help to operate with [Cardano Blockchain](https://cardano.org)
 
-## [Cardano Wallet](cardano-wallet/)
+## [Cardano Wallet](cardano-wallet/) 
+Temporary API gateway for Cardano Blockchain
 ### Init
 
 
