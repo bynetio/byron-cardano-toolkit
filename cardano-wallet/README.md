@@ -1,3 +1,5 @@
+Temporary API gateway for Cardano Blockchain
+
 # Init
 
 
