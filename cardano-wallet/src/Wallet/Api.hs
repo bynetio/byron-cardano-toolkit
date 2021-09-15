@@ -3,7 +3,7 @@
 
 module Wallet.Api where
 
-import Cardano.Node.Cli (NodeCliConfig (..), NodeCliException (..), cli, testnetMagic, touchFile)
+import Cardano.Node.Cli (NodeCliConfig (..), cli, testnetMagic, touchFile)
 import Control.Exception
   ( Exception,
     IOException,
@@ -22,6 +22,7 @@ import Control.Monad.Trans.Reader
 import Data.Aeson (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (catMaybes)
+import Data.Typeable (Typeable)
 import Data.UUID (UUID, toString)
 import GHC.Generics (Generic)
 import Safe (headMay)
@@ -50,6 +51,10 @@ instance ToJSON Wallet
 
 instance FromJSON Wallet
 
+data WalletException = CreateWalletFailure !String deriving (Show, Typeable)
+
+instance Exception WalletException
+
 fromReader :: Monad m => Reader r a -> ReaderT r m a
 fromReader = reader . runReader
 
@@ -71,7 +76,7 @@ createWallet cw = do
   walletId <- liftIO genWalletId
   let walletDir = walletStore <> "/" <> toString walletId
   dirExists <- liftIO $ doesDirectoryExist walletDir
-  when dirExists $ throw (CreateWalletException $ "wallet " <> toString walletId <> " already exists")
+  when dirExists $ throw (CreateWalletFailure $ "wallet " <> toString walletId <> " already exists")
   liftIO $ createDirectoryIfMissing True walletDir
   liftIO $ touchFiles walletDir
   let cfg' = cfg {nlcOutDir = walletDir}

@@ -14,7 +14,6 @@ import Control.Monad.Trans.Reader
   )
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Maybe (maybeToList)
-import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import System.Process (readProcess)
 
@@ -54,10 +53,6 @@ tip :: ReaderT NodeCliConfig IO String
 tip = do
   cfg <- ask
   liftIO $ cli cfg ["query", "tip", "--testnet-magic", "8"]
-
-data NodeCliException = CreateWalletException !String deriving (Show, Typeable)
-
-instance Exception NodeCliException
 
 fromReader :: Monad m => Reader r a -> ReaderT r m a
 fromReader = reader . runReader
