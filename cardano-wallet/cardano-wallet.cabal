@@ -25,6 +25,7 @@ library
     exposed-modules:  
         Cardano.Node.Cli
       , Cardano.Transaction
+      , Cardano.Data.Value
       , HttpEndpoints
       , Wallet.Api
 
@@ -35,6 +36,7 @@ library
     -- other-extensions:
     build-depends:
         base >= 4.7 && <5
+      , containers >= 0.5.7 && < 0.6  
       , aeson
       , bytestring
       , mtl

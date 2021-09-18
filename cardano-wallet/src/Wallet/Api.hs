@@ -21,6 +21,7 @@ import Control.Monad.Trans.Reader
   )
 import Data.Aeson (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as BS
 import Data.Maybe (catMaybes)
 import Data.Typeable (Typeable)
 import Data.UUID (UUID, toString)
@@ -151,3 +152,6 @@ getWalletKey uuid keyFileName = do
     catch (Just <$> readFile filePath) $ \e -> do
       putStrLn $ "Exception during getWalletKey: " <> show (e :: IOException)
       return Nothing
+
+getFunds :: UUID -> ReaderT NodeCliConfig IO String
+getFunds uuid = return "funds"

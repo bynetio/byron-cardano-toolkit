@@ -7,7 +7,7 @@
 
 module HttpEndpoints where
 
-import Cardano.Node.Cli (cliDefaultConfig, tip)
+import Cardano.Node.Cli (cliDefaultConfig, tip, NodeCliConfig)
 import Cardano.Transaction (CardanoTransaction, signTx)
 import Control.Exception
   ( Exception,
@@ -32,7 +32,7 @@ import Wallet.Api
     createWallet,
     getWalletById,
     getWalletKey,
-    listWallets,
+    listWallets, getFunds
   )
 
 data JsonRaw
@@ -44,9 +44,13 @@ type HttpAPI =
     :<|> "wallet" :> Capture "id" UUID :> Get '[JSON] (Maybe Wallet)
     :<|> "wallet" :> Capture "id" UUID :> "vkey" :> Get '[JsonRaw] (Maybe String)
     :<|> "wallet" :> Capture "id" UUID :> "signTx" :> ReqBody '[JSON] CardanoTransaction :> Post '[JSON] CardanoTransaction
+    :<|> "wallet" :> Capture "id" UUID :> "funds" :> Get '[JsonRaw] String
 
 instance Accept JsonRaw where
   contentType _ = "application" // "json" /: ("charset", "utf-8")
+
+instance MimeRender JsonRaw String where
+  mimeRender _ = convertString 
 
 instance MimeRender JsonRaw (Maybe String) where
   mimeRender _ (Just s) = convertString s
@@ -66,10 +70,14 @@ instance ToJSON Tip
 instance FromJSON Tip
 
 server :: Server HttpAPI
-server = handleTip :<|> handleCreateWallet :<|> handleListWallets :<|> handleGetWallet :<|> handleGetPubKey :<|> handleSignTx
+server = handleTip :<|> handleCreateWallet :<|> handleListWallets :<|> handleGetWallet :<|> handleGetPubKey :<|> handleSignTx 
+                   :<|> handleGetFunds
   where
+    handleGetFunds :: UUID -> Handler String
+    handleGetFunds = runReader . getFunds
+
     handleSignTx :: UUID -> CardanoTransaction -> Handler CardanoTransaction
-    handleSignTx uuid tx = liftIO $ runReaderT (signTx uuid tx) cliDefaultConfig
+    handleSignTx uuid = runReader . signTx uuid
 
     handleGetPubKey :: UUID -> Handler (Maybe String)
     handleGetPubKey uuid = liftIO $ runReaderT (getWalletKey uuid "payment.vkey") cliDefaultConfig
@@ -88,6 +96,9 @@ server = handleTip :<|> handleCreateWallet :<|> handleListWallets :<|> handleGet
       json <- liftIO $ runReaderT tip cliDefaultConfig
       let parsed = decode (convertString json) :: Maybe Tip
       return parsed
+
+    runReader :: ReaderT NodeCliConfig IO a -> Handler a
+    runReader m = liftIO $ runReaderT m cliDefaultConfig
 
 proxyAPI :: Proxy HttpAPI
 proxyAPI = Proxy

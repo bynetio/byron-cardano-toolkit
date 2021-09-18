@@ -52,7 +52,7 @@ instance FromJSON Tip
 tip :: ReaderT NodeCliConfig IO String
 tip = do
   cfg <- ask
-  liftIO $ cli cfg ["query", "tip", "--testnet-magic", "8"]
+  liftIO $ cli cfg (["query", "tip"] <> testnetMagic cfg)
 
 fromReader :: Monad m => Reader r a -> ReaderT r m a
 fromReader = reader . runReader
@@ -62,6 +62,13 @@ touchFile p = writeFile p ""
 
 testnetMagic :: NodeCliConfig -> [String]
 testnetMagic cfg = maybeToList (nlcTestnetMagic cfg) >>= \m -> ["--testnet-magic", m]
+
+type Address = String
+
+queryUtxo :: Address -> ReaderT NodeCliConfig IO String
+queryUtxo addr = do
+  cfg <- ask
+  liftIO $ cli cfg (["query", "utxo", "--address", addr, "--out-file", "/dev/stdout"] <> testnetMagic cfg)
 
 cli :: NodeCliConfig -> [String] -> IO String
 cli cfg args = readProcess "docker" (args' <> args) ""
