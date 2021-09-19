@@ -3,7 +3,7 @@
 
 module Wallet.Api where
 
-import Cardano.Node.Cli (NodeCliConfig (..), cli, testnetMagic, touchFile)
+import Cardano.Node.Cli (NodeCliConfig (..), cli, testnetMagic, touchFile, queryUtxo)
 import Control.Exception
   ( Exception,
     IOException,
@@ -153,5 +153,12 @@ getWalletKey uuid keyFileName = do
       putStrLn $ "Exception during getWalletKey: " <> show (e :: IOException)
       return Nothing
 
-getFunds :: UUID -> ReaderT NodeCliConfig IO String
-getFunds uuid = return "funds"
+getFunds :: UUID -> ReaderT NodeCliConfig IO (Maybe String)
+getFunds uuid = do
+  maybeWallet <- getWalletById uuid
+  case maybeWallet of
+    Just wallet -> Just <$> queryUtxo (address wallet)
+    Nothing -> return Nothing
+
+
+

@@ -8,7 +8,7 @@
 module HttpEndpoints where
 
 import Cardano.Node.Cli (cliDefaultConfig, tip, NodeCliConfig)
-import Cardano.Transaction (CardanoTransaction, signTx)
+import Cardano.Transaction (CardanoTransaction (CardanoTransaction), signTx, submitTx)
 import Control.Exception
   ( Exception,
     IOException,
@@ -44,7 +44,8 @@ type HttpAPI =
     :<|> "wallet" :> Capture "id" UUID :> Get '[JSON] (Maybe Wallet)
     :<|> "wallet" :> Capture "id" UUID :> "vkey" :> Get '[JsonRaw] (Maybe String)
     :<|> "wallet" :> Capture "id" UUID :> "signTx" :> ReqBody '[JSON] CardanoTransaction :> Post '[JSON] CardanoTransaction
-    :<|> "wallet" :> Capture "id" UUID :> "funds" :> Get '[JsonRaw] String
+    :<|> "wallet" :> Capture "id" UUID :> "funds" :> Get '[JsonRaw] (Maybe String)
+    :<|> "transaction" :> "submit" :> ReqBody '[JSON] CardanoTransaction :> PostNoContent
 
 instance Accept JsonRaw where
   contentType _ = "application" // "json" /: ("charset", "utf-8")
@@ -71,9 +72,12 @@ instance FromJSON Tip
 
 server :: Server HttpAPI
 server = handleTip :<|> handleCreateWallet :<|> handleListWallets :<|> handleGetWallet :<|> handleGetPubKey :<|> handleSignTx 
-                   :<|> handleGetFunds
+                   :<|> handleGetFunds :<|> handleSubmitTx
   where
-    handleGetFunds :: UUID -> Handler String
+    handleSubmitTx :: CardanoTransaction -> Handler NoContent
+    handleSubmitTx tx = runReader (submitTx tx) >> return NoContent
+
+    handleGetFunds :: UUID -> Handler (Maybe String)
     handleGetFunds = runReader . getFunds
 
     handleSignTx :: UUID -> CardanoTransaction -> Handler CardanoTransaction

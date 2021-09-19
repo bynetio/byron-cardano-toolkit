@@ -20,7 +20,7 @@ docker run \
   -v data:/opt/cardano/data \
   -v config:/opt/cardano/config \
   -p 3001:3001 \
-  inputoutput/cardano-node:1.29.0-rc2 \
+  inputoutput/cardano-node:1.30.0-rc4 \
   run \
   --config /opt/cardano/config/alonzo-purple-config.json \
   --topology /opt/cardano/config/alonzo-purple-topology.json \

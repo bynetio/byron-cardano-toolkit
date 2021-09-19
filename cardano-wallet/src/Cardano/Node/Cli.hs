@@ -32,7 +32,7 @@ cliDefaultConfig =
     { nlcOutDir = "/home/ssledz/now/out",
       nlcNetwork = "testnet",
       nlcContainerName = "node-cli",
-      nlcDockerImage = "inputoutput/cardano-node:1.29.0-rc2",
+      nlcDockerImage = "inputoutput/cardano-node:1.30.0-rc4",
       nlcTestnetMagic = Just "8"
     }
 
