@@ -26,6 +26,7 @@ library
         Cardano.Node.Cli
       , Cardano.Transaction
       , Cardano.Data.Value
+      , Cardano.Data
       , HttpEndpoints
       , Wallet.Api
 

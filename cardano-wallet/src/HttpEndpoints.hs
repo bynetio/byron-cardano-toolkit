@@ -45,6 +45,7 @@ type HttpAPI =
     :<|> "wallet" :> Capture "id" UUID :> "vkey" :> Get '[JsonRaw] (Maybe String)
     :<|> "wallet" :> Capture "id" UUID :> "signTx" :> ReqBody '[JSON] CardanoTransaction :> Post '[JSON] CardanoTransaction
     :<|> "wallet" :> Capture "id" UUID :> "funds" :> Get '[JsonRaw] (Maybe String)
+    
     :<|> "transaction" :> "submit" :> ReqBody '[JSON] CardanoTransaction :> PostNoContent
 
 instance Accept JsonRaw where

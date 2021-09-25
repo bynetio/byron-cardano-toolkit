@@ -3,7 +3,8 @@
 
 module Wallet.Api where
 
-import Cardano.Node.Cli (NodeCliConfig (..), cli, testnetMagic, touchFile, queryUtxo)
+import Cardano.Data (Address, Value)
+import Cardano.Node.Cli (NodeCliConfig (..), cli, queryUtxo, testnetMagic, touchFile)
 import Control.Exception
   ( Exception,
     IOException,
@@ -20,8 +21,8 @@ import Control.Monad.Trans.Reader
     runReader,
   )
 import Data.Aeson (FromJSON, ToJSON, decode, encode)
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe (catMaybes)
 import Data.Typeable (Typeable)
 import Data.UUID (UUID, toString)
@@ -137,7 +138,6 @@ listWallets = do
     filePath :: FilePath -> FilePath -> FilePath
     filePath root dir = root <> "/" <> dir <> "/meta.json"
 
-    -- parseWallet :: BLU.ByteString -> Maybe Wallet
     parseWallet :: BSL.ByteString -> Maybe Wallet
     parseWallet str = decode str
 
@@ -160,5 +160,7 @@ getFunds uuid = do
     Just wallet -> Just <$> queryUtxo (address wallet)
     Nothing -> return Nothing
 
-
-
+payToAddress :: UUID -> Address -> Value -> ReaderT NodeCliConfig IO ()
+payToAddress uuid address value = do
+  liftIO $ putStrLn $ "Pay from " <> toString uuid <> " to " <> show address <> " value " <> show value
+  return ()

@@ -14,6 +14,7 @@ import Control.Monad.Trans.Reader
   )
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Maybe (maybeToList)
+import Cardano.Data (Address)
 import GHC.Generics (Generic)
 import System.Process (readProcess)
 
@@ -62,8 +63,6 @@ touchFile p = writeFile p ""
 
 testnetMagic :: NodeCliConfig -> [String]
 testnetMagic cfg = maybeToList (nlcTestnetMagic cfg) >>= \m -> ["--testnet-magic", m]
-
-type Address = String
 
 queryUtxo :: Address -> ReaderT NodeCliConfig IO String
 queryUtxo addr = do
