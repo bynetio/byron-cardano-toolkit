@@ -43,7 +43,7 @@ node_run() {
     if_no_container cardano-node docker run \
 		    --rm \
 		    -v config:/config \
-		    ssledz/cardano-alonzo-purple-node-config:latest
+		    $CONFIG_IMAGE
     
     if_no_container cardano-node  docker run \
 		    -d \
@@ -52,7 +52,7 @@ node_run() {
 		    -v data:/opt/cardano/data \
 		    -v config:/opt/cardano/config \
 		    -p 3001:3001 \
-		    inputoutput/cardano-node:1.29.0-rc2 \
+		    $NODE_IMAGE \
 		    run \
 		    --config /opt/cardano/config/alonzo-purple-config.json \
 		    --topology /opt/cardano/config/alonzo-purple-topology.json \
@@ -114,7 +114,7 @@ Cardano node does not exists, run one using following commands:
     docker run \\
       --rm \\
       -v config:/config \\
-      ssledz/cardano-alonzo-purple-node-config:latest
+      $CONFIG_IMAGE
 
     docker run \\
       -d \\
@@ -123,7 +123,7 @@ Cardano node does not exists, run one using following commands:
       -v data:/opt/cardano/data \\
       -v config:/opt/cardano/config \\
       -p 3001:3001 \\
-      inputoutput/cardano-node:1.29.0-rc2 \\
+      $NODE_IMAGE \\
       run \\
       --config /opt/cardano/config/alonzo-purple-config.json \\
       --topology /opt/cardano/config/alonzo-purple-topology.json \\
@@ -157,11 +157,11 @@ node_cli() {
 	   -e CARDANO_NODE_SOCKET_PATH=/ipc/socket \
 	   -v node-ipc:/ipc \
 	   -v ${sandbox_dir}:/out \
-	   inputoutput/cardano-node:1.29.0-rc2 $@    
+	   $NODE_IMAGE $@    
 }
 
 get_tip() {
-  node_cli query tip --testnet-magic $TESTNET_MAGIC
+  node_cli query tip $NETWORK
 }
 
 get_node_sync_progress() {
@@ -172,8 +172,7 @@ get_utxos() {
     local addr=$1
     node_cli query utxo \
 	     --address $addr \
-	     --testnet-magic $TESTNET_MAGIC \
-	     --out-file /dev/stdout \
+	     --out-file /dev/stdout $NETWORK \
 	| jq -c ". as \$obj | keys_unsorted | map(. as \$key | \$obj[\$key] | . + {tx: \$key})"
 }
 
@@ -263,20 +262,20 @@ loop_query_utxo() {
       echo "\nQuering utxo at $(shorten_addr $addr) (node sync: $(get_node_sync_progress))"
   }
   qloop 'qloop_message' \
-	node_cli query utxo --address $addr --testnet-magic $TESTNET_MAGIC
+	node_cli query utxo --address $addr $NETWORK
 }
 
 get_script_address() {
   local file_name=$1
-  node_cli address build --payment-script-file /out/$file_name --testnet-magic $TESTNET_MAGIC
+  node_cli address build --payment-script-file /out/$file_name $NETWORK
 }
 
 get_current_slot() {
-  node_cli query tip --testnet-magic $TESTNET_MAGIC | jq '.slot'
+  node_cli query tip $NETWORK | jq '.slot'
 }
 
 get_protocol_params() {
-  node_cli query protocol-parameters --testnet-magic $TESTNET_MAGIC
+  node_cli query protocol-parameters $NETWORK
 }
 
 get_datum_hash() {
