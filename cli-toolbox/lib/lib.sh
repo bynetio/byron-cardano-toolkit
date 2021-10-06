@@ -54,8 +54,8 @@ node_run() {
 		    -p 3001:3001 \
 		    $NODE_IMAGE \
 		    run \
-		    --config /opt/cardano/config/alonzo-purple-config.json \
-		    --topology /opt/cardano/config/alonzo-purple-topology.json \
+		    --config /opt/cardano/config/node-config.json \
+		    --topology /opt/cardano/config/topology.json \
 		    --port 3001
 }
 
@@ -125,8 +125,8 @@ Cardano node does not exists, run one using following commands:
       -p 3001:3001 \\
       $NODE_IMAGE \\
       run \\
-      --config /opt/cardano/config/alonzo-purple-config.json \\
-      --topology /opt/cardano/config/alonzo-purple-topology.json \\
+      --config /opt/cardano/config/node-config.json \\
+      --topology /opt/cardano/config/topology.json \\
       --port 3001
 
 EOF
@@ -158,6 +158,11 @@ node_cli() {
 	   -v node-ipc:/ipc \
 	   -v ${sandbox_dir}:/out \
 	   $NODE_IMAGE $@    
+}
+
+get_script_addr() {
+    local file_name=$1  
+    node_cli address build --payment-script-file /out/$file_name $NETWORK
 }
 
 get_tip() {
@@ -281,4 +286,8 @@ get_protocol_params() {
 get_datum_hash() {
   local file_name=$1  
   node_cli transaction hash-script-data --script-data-file /out/$file_name
+}
+
+gen_uuid() {
+  cat /proc/sys/kernel/random/uuid
 }
