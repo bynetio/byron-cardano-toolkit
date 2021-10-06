@@ -1,6 +1,10 @@
 #!/bin/bash
 
-source lib.sh
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $dir/etc/config
+source $dir/lib/fun.sh
+source $dir/lib/lib.sh
 
 show_help() {
   cat << EOF
@@ -76,8 +80,6 @@ for req in ${required[@]}; do
   [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
 done
 
-export TESTNET_MAGIC=7
-
 #----- assert cardano node runs -----
 
 assert_cardano_node_exists
@@ -91,7 +93,7 @@ mkdir -p $sandbox_dir
 cp $script_path $sandbox_dir
 cp $pkey_path $sandbox_dir/payment.skey
 
-script_addr=$(node_cli address build --payment-script-file /out/$(basename $script_path) --testnet-magic $TESTNET_MAGIC)
+script_addr=$(get_script_addr $(basename $script_path))
 
 node_cli query protocol-parameters --testnet-magic $TESTNET_MAGIC > $sandbox_dir/protocol.json
 
@@ -99,34 +101,13 @@ cat $datum_path > $sandbox_dir/datum.json
 
 #----- hash datum -----
 
-#datum_hash=$(node_cli transaction hash-script-data --script-data-file /out/datum.json)
 datum_hash=$(get_datum_hash datum.json)
 
 touch $sandbox_dir/tx.draft
 touch $sandbox_dir/tx.signed
 
-#get_utxo() {
-#    local addr=$1
-#    local utxos=$(node_cli query utxo  --address $payment_addr --testnet-magic $TESTNET_MAGIC --out-file /dev/stdout | jq -r 'keys_unsorted[]')
-#    local cnt=$(list $utxos | wc -l)
-#    if [[ $cnt -eq 1 ]]; then
-#	echo $utxos
-#    else
-#	echo "At a given address there are multiple utxos, choose one: $(seq 1 $cnt | join ,)" > /dev/tty
-#	node_cli query utxo --address $payment_addr --testnet-magic $TESTNET_MAGIC --out-file /dev/stdout | jq > /dev/tty
-#	read  -p '> ' n < /dev/tty
-#	if [[ $(seq 1 $cnt | grep -e "^$n\$" | wc -l) -eq 0 ]]; then
-#	    echo 'No such element, choose again...' > /dev/tty
-#	    get_utxo $addr
-#	else
-#	    list $utxos | drop $((n-1)) | head -1
-#	fi
-#    fi
-#}
-
 utxo_in=$(get_utxo $payment_addr)
 
-#utxo_in_value=$(node_cli query utxo --address $payment_addr --testnet-magic $TESTNET_MAGIC --out-file /dev/stdout | jq -r ".\"$utxo_in\".value.lovelace")
 utxo_in_value=$(get_utxo_value_at_tx $payment_addr $utxo_in)
 
 node_cli transaction build-raw \

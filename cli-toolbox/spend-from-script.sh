@@ -1,6 +1,10 @@
 #!/bin/bash
 
-source lib.sh
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $dir/etc/config
+source $dir/lib/fun.sh
+source $dir/lib/lib.sh
 
 show_help() {
   cat << EOF
@@ -107,8 +111,6 @@ required=(script_path collateral_addr num_slot_exp script_exe_units datum_path w
 for req in ${required[@]}; do
   [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
 done
-
-export TESTNET_MAGIC=7
 
 #----- assert cardano node runs -----
 

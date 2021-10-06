@@ -1,9 +1,8 @@
 #!/bin/bash
 
-export TESTNET_MAGIC=8
-
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+source $dir/etc/config
 source $dir/lib/fun.sh
 source $dir/lib/lib.sh
 
