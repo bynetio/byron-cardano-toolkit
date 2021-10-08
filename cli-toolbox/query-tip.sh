@@ -59,8 +59,6 @@ for req in ${required[@]}; do
   [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
 done
 
-sandbox_dir=$(pwd)
-
 assert_cardano_node_exists
 
 if [[ $query_in_loop -eq 1 ]]; then

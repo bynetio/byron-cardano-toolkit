@@ -160,6 +160,12 @@ node_cli() {
 	   $NODE_IMAGE $@    
 }
 
+new_sandbox() {
+    local path=$SANDBOX_ROOT_DIR/$(date +"%Y%m%dT%H%M%S")
+    mkdir -p $path
+    echo $path
+}
+
 get_script_addr() {
     local file_name=$1  
     node_cli address build --payment-script-file /out/$file_name $NETWORK
