@@ -11,7 +11,7 @@ show_help() {
 
   Usage: ${0##*/} [-h]
 
-  Application description.
+  Shut down running node.
  
   -h                     Print this help.
 
@@ -46,11 +46,5 @@ while getopts "h" opt; do
 done
 
 shift $((OPTIND-1))
-
-required=()
-
-for req in ${required[@]}; do
-  [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
-done
 
 node_rm

@@ -81,7 +81,7 @@ assert_cardano_node_exists
 
 #----- initializing sandbox -----
 
-sandbox_dir=$(pwd)/.pay-to-wallet-script-$(date +"%Y%m%dT%H%M%S")
+sandbox_dir=$(new_sandbox)
 
 mkdir -p $sandbox_dir
 touch $sandbox_dir/tx.draft
@@ -110,8 +110,7 @@ node_cli transaction calculate-min-fee \
   --tx-in-count 1 \
   --tx-out-count 2 \
   --witness-count 1 \
-  --testnet-magic 7 \
-  --protocol-params-file /out/protocol.json > $sandbox_dir/fee.txt
+  --protocol-params-file /out/protocol.json $NETWORK > $sandbox_dir/fee.txt
 
 fee=$(cat $sandbox_dir/fee.txt | cut -d' ' -f1)
 
@@ -128,8 +127,7 @@ node_cli transaction build-raw \
 node_cli transaction sign \
   --tx-body-file /out/tx.draft \
   --signing-key-file /out/payment.skey \
-  --testnet-magic $TESTNET_MAGIC \
-  --out-file /out/tx.signed
+  --out-file /out/tx.signed $NETWORK
 
 cat <<EOF
 
@@ -149,8 +147,7 @@ echo
 if [[ $ans == 'y' ]]; then
   echo -e "\nSubmiting transaction...\n"
   node_cli transaction submit \
-    --tx-file /out/tx.signed \
-    --testnet-magic $TESTNET_MAGIC
+    --tx-file /out/tx.signed $NETWORK
   loop_query_utxo $dest_addr
 fi
 
