@@ -9,12 +9,13 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} -s source_addr -d dest_addr -v amount_of_lovelase -k payment_key_path [-h]
+  Usage: ${0##*/} { -s source_addr -k payment_key_path | -w wallet } -d dest_addr -v amount_of_lovelase [-h]
 
   Application description.
 
   -s source_addr              Source address (pay address).
   -d dest_addr                Destination address.
+  -w wallet                   Source wallet (implicates source address and payment key)
   -v lovelace                 Amount of lovelace to pay.
   -k payment_key_path         Path to payment key.        
   -h                          Print this help.
@@ -27,9 +28,15 @@ dest_addr=
 pay_value=
 payment_key_path=
 
-while getopts ":s:d:k:v:dh" opt; do
+while getopts ":s:d:k:w:v:dh" opt; do
 
-  case $opt in
+  case $opt in 
+    w)
+      wallet=$OPTARG
+      source_addr=$($dir/wallet.sh -a $wallet)
+      [[ $? -ne 0 ]] && exit 1
+      payment_key_path=$($dir/wallet.sh -k $wallet)
+      ;;
     s)
       source_addr=$OPTARG
       ;;
@@ -74,60 +81,73 @@ for req in ${required[@]}; do
   [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
 done
 
+init_sandbox() {
+  sandbox_dir=$(new_sandbox)
+  touch $sandbox_dir/tx.draft
+  touch $sandbox_dir/tx.signed
+  cp $payment_key_path $sandbox_dir/payment.skey
+  get_protocol_params > $sandbox_dir/protocol.json
+}
 
-#----- assert cardano node runs -----
+build_raw_tx() {
+
+  utxo_in=$(get_utxo $source_addr)
+
+  utxo_in_value=$(get_utxo_value_at_tx $source_addr $utxo_in)
+
+  node_cli transaction build-raw \
+    --tx-in $utxo_in \
+    --tx-out $source_addr+0 \
+    --tx-out $dest_addr+0 \
+    --alonzo-era \
+    --fee 0 \
+    --out-file /out/tx.draft
+
+  node_cli transaction calculate-min-fee \
+    --tx-body-file /out/tx.draft \
+    --tx-in-count 1 \
+    --tx-out-count 2 \
+    --witness-count 1 \
+    --protocol-params-file /out/protocol.json $NETWORK > $sandbox_dir/fee.txt
+
+  fee=$(cat $sandbox_dir/fee.txt | cut -d' ' -f1)
+
+  result_balance=$(echo "$utxo_in_value-$fee-$pay_value" | bc)
+
+  node_cli transaction build-raw \
+    --tx-in $utxo_in \
+    --tx-out $source_addr+$result_balance \
+    --tx-out $dest_addr+$pay_value \
+    --alonzo-era \
+    --fee $fee \
+    --out-file /out/tx.draft
+}
+
+submit_tx() {
+  read -n1 -p 'Submit transaction [y/n] > ' ans < /dev/tty
+  echo
+  if [[ $ans == 'y' ]]; then
+    echo -e "\nSubmiting transaction...\n"
+    node_cli transaction submit \
+      --tx-file /out/tx.signed $NETWORK
+    loop_query_utxo $dest_addr
+  fi
+}
+
+sign_tx() {
+  node_cli transaction sign \
+    --tx-body-file /out/tx.draft \
+    --signing-key-file /out/payment.skey \
+    --out-file /out/tx.signed $NETWORK
+}
 
 assert_cardano_node_exists
 
-#----- initializing sandbox -----
+init_sandbox
 
-sandbox_dir=$(new_sandbox)
+build_raw_tx
 
-mkdir -p $sandbox_dir
-touch $sandbox_dir/tx.draft
-touch $sandbox_dir/tx.signed
-cp $payment_key_path $sandbox_dir/payment.skey
-
-#-----  get protocol parameters ----
-
-get_protocol_params > $sandbox_dir/protocol.json
-
-#----- selecting utxo at source wallet address -----
-
-utxo_in=$(get_utxo $source_addr)
-utxo_in_value=$(get_utxo_value_at_tx $source_addr $utxo_in)
-
-node_cli transaction build-raw \
-  --tx-in $utxo_in \
-  --tx-out $source_addr+0 \
-  --tx-out $dest_addr+0 \
-  --alonzo-era \
-  --fee 0 \
-  --out-file /out/tx.draft
-
-node_cli transaction calculate-min-fee \
-  --tx-body-file /out/tx.draft \
-  --tx-in-count 1 \
-  --tx-out-count 2 \
-  --witness-count 1 \
-  --protocol-params-file /out/protocol.json $NETWORK > $sandbox_dir/fee.txt
-
-fee=$(cat $sandbox_dir/fee.txt | cut -d' ' -f1)
-
-result_balance=$(echo "$utxo_in_value-$fee-$pay_value" | bc)
-
-node_cli transaction build-raw \
-  --tx-in $utxo_in \
-  --tx-out $source_addr+$result_balance \
-  --tx-out $dest_addr+$pay_value \
-  --alonzo-era \
-  --fee $fee \
-  --out-file /out/tx.draft
-
-node_cli transaction sign \
-  --tx-body-file /out/tx.draft \
-  --signing-key-file /out/payment.skey \
-  --out-file /out/tx.signed $NETWORK
+sign_tx
 
 cat <<EOF
 
@@ -142,13 +162,6 @@ cat <<EOF
       
 EOF
 
-read -n1 -p 'Submit transaction [y/n] > ' ans < /dev/tty
-echo
-if [[ $ans == 'y' ]]; then
-  echo -e "\nSubmiting transaction...\n"
-  node_cli transaction submit \
-    --tx-file /out/tx.signed $NETWORK
-  loop_query_utxo $dest_addr
-fi
+submit_tx
 
 rm -rf $sandbox_dir

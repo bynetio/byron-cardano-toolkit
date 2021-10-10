@@ -66,16 +66,8 @@ assert_cardano_node_exists
 
 if [[ $wallet -eq 1 ]]; then
   name=$address
-  address=$($dir/wallet.sh -a $name)
-  [[ $(list $address | wc -l) -eq 0 ]] && echo "There  is no such wallet" && exit 1
-  if [[ $(list $address | wc -l) -gt 1 ]]; then 
-    echo -e "\nThere is more then one wallet identified by $name\n"
-    $dir/wallet.sh -l | lhead
-    $dir/wallet.sh -l | grep $name
-    echo
-    exit 2
-  fi
-
+  address=$($dir/wallet.sh -a $address)
+  [[ $? -ne 0 ]] && exit 1
 fi
 
 loop_query_utxo $address
