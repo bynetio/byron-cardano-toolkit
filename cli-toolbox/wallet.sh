@@ -145,22 +145,46 @@ wallet_path_by_id() {
     done
 }
 
+list_wallets() {
+  echo -e "Id\t\t\t\t\tName\t\tDesc\n=============================================================="; 
+  find $WALLETS_DIR -iname meta.json | xargs cat | jq -r '([.identifier, .name, .desc]) | @tsv'
+}
+
+find_one_wallet() {
+  local id=$1
+  wallet=$(wallet_path_by_id $id)
+    cnt=$(list $wallet | wc -l)
+    if [[ $cnt -gt 1 ]]; then 
+      (1>&2 echo -e "\nThere is more then one wallet identified by $id\n")
+      (1>&2 list_wallets)
+      exit 1
+    elif [[ $cnt -eq 0 ]]; then
+      (1>&2 echo "There is no such wallet identified by $id")
+      exit 2
+    else
+      echo $wallet
+    fi
+}
+
+print_wallet() {
+  local id=$1
+  local asset=$2
+  wallet=$(find_one_wallet $id) # can't be local
+  [[ $? -eq 0 ]] && echo $(cat $wallet/$asset)
+}
+
 case $cmd in
   "create")
     create_wallet $wallet_name "$wallet_desc"
     ;;
   "ls")
-     echo -e "Id\t\t\t\t\tName\t\tDesc\n=============================================================="; 
-     find $WALLETS_DIR -iname meta.json | xargs cat | jq -r '([.identifier, .name, .desc]) | @tsv'
+     list_wallets
     ;;
   "print_address")
-    wallet_path_by_id $wallet_identifier | while read line; do
-      echo $(cat $line/wallet.addr)
-    done
+    print_wallet $wallet_identifier "wallet.addr"
     ;;
   "print_key")
-    wallet_path_by_id $wallet_identifier | while read line; do
-      echo $line/payment.skey
-    done
+    wallet=$(find_one_wallet $wallet_identifier)
+    [[ $? -eq 0 ]] && echo "$wallet/payment.skey"
     ;;
 esac
