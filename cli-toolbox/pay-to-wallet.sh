@@ -123,31 +123,13 @@ build_raw_tx() {
     --out-file /out/tx.draft
 }
 
-submit_tx() {
-  read -n1 -p 'Submit transaction [y/n] > ' ans < /dev/tty
-  echo
-  if [[ $ans == 'y' ]]; then
-    echo -e "\nSubmiting transaction...\n"
-    node_cli transaction submit \
-      --tx-file /out/tx.signed $NETWORK
-    loop_query_utxo $dest_addr
-  fi
-}
-
-sign_tx() {
-  node_cli transaction sign \
-    --tx-body-file /out/tx.draft \
-    --signing-key-file /out/payment.skey \
-    --out-file /out/tx.signed $NETWORK
-}
-
 assert_cardano_node_exists
 
 init_sandbox
 
 build_raw_tx
 
-sign_tx
+sign_tx payment.skey
 
 cat <<EOF
 
@@ -162,6 +144,6 @@ cat <<EOF
       
 EOF
 
-submit_tx
+[[ $(submit_tx | tail -1) == "true" ]] && loop_query_utxo $dest_addr
 
 rm -rf $sandbox_dir

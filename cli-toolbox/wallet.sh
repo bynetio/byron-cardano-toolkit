@@ -9,7 +9,7 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} [-h] [-l] [-c wallet_name [-d desc]] [-a wallet_name|id] [-k wallet_name|id]
+  Usage: ${0##*/} [-h] [-l] [-c wallet_name [-d desc]] [-a wallet_name|id] [-k wallet_name|id] [-j wallet_name|id]
 
   -c wallet_name         Creates wallet consisting of the following assets: 
                            * payment.skey
@@ -25,6 +25,8 @@ show_help() {
 
   -k wallet_name|id      Return path to secure payment key
 
+  -j wallet_name|id      Return path to verification payment key
+
   -l                     list all wallets
 
   -h                     Print this help.
@@ -39,7 +41,7 @@ wallet_name=
 wallet_desc=
 wallet_identifier=
 
-while getopts ":a:k:d:c:lh" opt; do
+while getopts ":a:j:k:d:c:lh" opt; do
 
   case $opt in
     c)
@@ -56,10 +58,14 @@ while getopts ":a:k:d:c:lh" opt; do
       cmd="print_address"
       wallet_identifier="$OPTARG"
       ;;
-    k)
-      cmd="print_key"
+    j)
+      cmd="print_vkey"
       wallet_identifier="$OPTARG"
-      ;;      
+      ;;    
+    k)
+      cmd="print_skey"
+      wallet_identifier="$OPTARG"
+      ;;            
     h)
       show_help
       exit 0
@@ -183,8 +189,12 @@ case $cmd in
   "print_address")
     print_wallet $wallet_identifier "wallet.addr"
     ;;
-  "print_key")
+  "print_skey")
     wallet=$(find_one_wallet $wallet_identifier)
     [[ $? -eq 0 ]] && echo "$wallet/payment.skey"
     ;;
+  "print_vkey")
+    wallet=$(find_one_wallet $wallet_identifier)
+    [[ $? -eq 0 ]] && echo "$wallet/payment.vkey"
+    ;;  
 esac

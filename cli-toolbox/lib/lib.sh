@@ -157,7 +157,7 @@ node_cli() {
 	   -e CARDANO_NODE_SOCKET_PATH=/ipc/socket \
 	   -v node-ipc:/ipc \
 	   -v ${sandbox_dir}:/out \
-	   $NODE_IMAGE $@    
+	   $NODE_IMAGE "$@"
 }
 
 new_sandbox() {
@@ -296,4 +296,24 @@ get_datum_hash() {
 
 gen_uuid() {
   cat /proc/sys/kernel/random/uuid
+}
+
+submit_tx() {
+  read -n1 -p 'Submit transaction [y/n] > ' ans < /dev/tty
+  echo
+  if [[ $ans == 'y' ]]; then
+    (1>/dev/tty echo -e "\nSubmiting transaction...\n")
+    node_cli transaction submit \
+      --tx-file /out/tx.signed $NETWORK
+    ret "true"  
+  else
+    ret "false"  
+  fi
+}
+
+sign_tx() {
+  local keys=$(list $@ | map lambda a . 'echo --signing-key-file /out/$a' | unlist)
+  node_cli transaction sign \
+    --tx-body-file /out/tx.draft $keys \
+    --out-file /out/tx.signed $NETWORK
 }
