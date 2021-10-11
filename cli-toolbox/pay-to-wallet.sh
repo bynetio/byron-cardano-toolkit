@@ -9,7 +9,7 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} { -s source_addr -k payment_key_path | -w wallet } -d dest_addr -v amount_of_lovelase [-h]
+  Usage: ${0##*/} { -s source_addr -k payment_key_path | -w wallet } -d dest_addr -v amount_of_lovelase [-t token] [-h]
 
   Application description.
 
@@ -17,6 +17,7 @@ show_help() {
   -d dest_addr                Destination address.
   -w wallet                   Source wallet (implicates source address and payment key)
   -v lovelace                 Amount of lovelace to pay.
+  -t token                    Token in a form of "amount policy_id.token_name"
   -k payment_key_path         Path to payment key.        
   -h                          Print this help.
 
@@ -27,8 +28,9 @@ source_addr=
 dest_addr=
 pay_value=
 payment_key_path=
+token=
 
-while getopts ":s:d:k:w:v:dh" opt; do
+while getopts ":s:d:t:k:w:v:dh" opt; do
 
   case $opt in 
     w)
@@ -46,6 +48,9 @@ while getopts ":s:d:k:w:v:dh" opt; do
     v)
       pay_value=$OPTARG
       ;;
+    t)
+      token=$OPTARG
+      ;;  
     k)
       payment_key_path=$OPTARG
       ;;    
@@ -114,13 +119,27 @@ build_raw_tx() {
 
   result_balance=$(echo "$utxo_in_value-$fee-$pay_value" | bc)
 
+  if [[ ! -z $token ]]; then
+    compute_token_result() {
+      cat <(get_utxo_tsv_value_at_tx $source_addr $utxo_in) \
+          <(list -$token | revers | join ' ' | tr '.' '\t' | tr ' ' '\t') \
+            | mappend_value \
+            | foldl lambda acc a . 'echo $acc+$a'
+    }
+    token_result_balance="$(compute_token_result)"
+    # echo "token_result_balance=$token_result_balance"
+    [[ ! -z $token_result_balance ]] && result_balance=$result_balance+"$token_result_balance"
+  fi
+
   node_cli transaction build-raw \
     --tx-in $utxo_in \
-    --tx-out $source_addr+$result_balance \
-    --tx-out $dest_addr+$pay_value \
+    --tx-out $source_addr+"$result_balance" \
+    --tx-out $dest_addr+$pay_value+"$token" \
     --alonzo-era \
     --fee $fee \
     --out-file /out/tx.draft
+
+  [[ $? -ne 0 ]] && exit 1   
 }
 
 assert_cardano_node_exists

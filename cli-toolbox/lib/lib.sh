@@ -232,6 +232,51 @@ get_utxo() {
     fi
 }
 
+mappend_value() {
+  cvalue=0
+  casset=  
+  while read line; do
+    # echo "L == $line"
+    curr=$(echo $line | cut -d' ' -f1)
+    token=$(echo $line | cut -d' ' -f2)
+    value=$(echo $line | cut -d' ' -f3)
+    asset="$curr.$token"
+
+    # echo "cvalue = $cvalue"
+    # echo "$casset == $asset"
+
+    if [[ $casset == $asset ]]; then
+      cvalue=$((value+cvalue))
+    else
+      [[ ! $cvalue -eq 0 ]] && echo "$cvalue $casset"
+      casset=$asset
+      cvalue=$value
+    fi
+  done < <(cat - | sort)
+  [[ ! $cvalue -eq 0 ]] && echo "$cvalue $casset"
+}
+
+get_utxo_value2_at_tx() {
+    local addr=$1
+    local tx=$2
+    get_utxos $addr | filter_utxo_by_tx $tx | jq -r ".value"
+}
+
+get_utxo_tsv_value_at_tx() {
+  local addr=$1
+  local tx=$2  
+  get_utxo_value2_at_tx $addr $tx \
+    | jq -r ". as \$v | keys | map(. as \$c | select(\$c!=\"lovelace\") | \$v[\$c] | keys | map(. as \$t | [\$c, \$t, \$v[\$c][]] | @tsv)  )" \
+    | jq -r ".[][]"
+}
+
+get_utxo_currencies_at_tx() {
+    local addr=$1
+    local tx=$2
+    get_utxos $addr | filter_utxo_by_tx $tx | jq -r ".value | keys"
+}
+
+# TODO change name to get_utxo_lovelace_at_tx
 get_utxo_value_at_tx() {
     local addr=$1
     local tx=$2

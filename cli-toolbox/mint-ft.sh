@@ -9,12 +9,14 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} -w wallet -u policy-wallet -t token-name -n token-amount [-m token-meta-json-path] [-h]
+  Usage: ${0##*/} -w wallet -u policy-wallet -d dest_addr -t token-name -n token-amount [-v amount_of_lovelase] [-m token-meta-json-path] [-h]
 
   Application description.
 
   -w wallet                   Minting wallet (implicates source address and payment key)
   -u policy-wallet            Determines policy key pairs
+  -d dest_addr                Destination address.
+  -v lovelace_amount
   -t token-name
   -n token-amount
   -m token-meta-json-path
@@ -27,13 +29,21 @@ payment_addr=
 payment_key_path=
 policy_vkey_path=
 policy_skey_path=
+lovelace_amount=3344798
+dest_addr=
 token_name=
 token_amount=
 token_meta_path=
 
-while getopts ":w:m:n:t:u:h" opt; do
+while getopts ":w:d:m:v:n:t:u:h" opt; do
 
   case $opt in
+    v)
+      lovelace_amount=$OPTARG
+      ;;  
+    d)
+      dest_addr=$OPTARG
+      ;; 
     m)
       token_meta_path=$OPTARG
       ;;    
@@ -81,7 +91,7 @@ done
 
 shift $((OPTIND-1))
 
-required=(payment_addr payment_key_path policy_vkey_path policy_skey_path token_name token_amount)
+required=(payment_addr payment_key_path lovelace_amount dest_addr policy_vkey_path policy_skey_path token_name token_amount)
 
 for req in ${required[@]}; do
   [[ -z ${!req} ]] && echo && echo "  Please specify $req" && show_help &&  exit 1
@@ -159,7 +169,8 @@ build_raw_tx() {
  
   node_cli transaction build-raw \
     --tx-in "$utxo_in" \
-    --tx-out $payment_addr+0+"$token_value" \
+    --tx-out $dest_addr+$lovelace_amount+"$token_value" \
+    --tx-out $payment_addr+0 \
     --mint "$token_value" \
     --minting-script-file /out/policy.script \
     --metadata-json-file /out/token_meta.json \
@@ -170,23 +181,36 @@ build_raw_tx() {
   node_cli transaction calculate-min-fee \
     --tx-body-file /out/tx.draft \
     --tx-in-count 1 \
-    --tx-out-count 1 \
+    --tx-out-count 2 \
     --witness-count 2 \
     --protocol-params-file /out/protocol.json $NETWORK > $sandbox_dir/fee.txt
 
   fee=$(cat $sandbox_dir/fee.txt | cut -d' ' -f1)
 
-  result_balance=$(echo "$utxo_in_value-$fee" | bc)
+  result_balance=$(echo "$utxo_in_value-$fee-$lovelace_amount" | bc)
 
   node_cli transaction build-raw \
     --tx-in $utxo_in \
-    --tx-out $payment_addr+$result_balance+"$token_value" \
+    --tx-out $dest_addr+$lovelace_amount+"$token_value" \
+    --tx-out $payment_addr+$result_balance \
     --alonzo-era \
     --fee $fee \
     --mint="$token_value" \
     --minting-script-file /out/policy.script \
     --metadata-json-file /out/token_meta.json \
-    --out-file /out/tx.draft
+    --out-file /out/tx.draft  
+
+#   node_cli transaction build \
+#     --tx-in $utxo_in \
+#     --tx-out $dest_addr+$lovelace_amount+"$token_value" \
+#     --alonzo-era \
+#     --mint="$token_value" \
+#     --minting-script-file /out/policy.script \
+#     --metadata-json-file /out/token_meta.json \
+#     --change-address $payment_addr $NETWORK \
+#     --out-file /out/tx.draft
+
+  [[ $? -ne 0 ]] && exit 1  
 
 }
 
@@ -204,13 +228,11 @@ cat <<EOF
       Payment address     : $payment_addr 
       Destination address : $payment_addr
 
-      Current balance     : $utxo_in_value
-      Fee                 : $fee
-      Result balance      : $result_balance
+      Send value          : $lovelace_amount+"$token_value"
       
 EOF
 
-[[ $(submit_tx | tail -1) == "true" ]] && loop_query_utxo $payment_addr
+[[ $(submit_tx | tail -1) == "true" ]] && loop_query_utxo $dest_addr
 
 rm -rf $sandbox_dir
 
