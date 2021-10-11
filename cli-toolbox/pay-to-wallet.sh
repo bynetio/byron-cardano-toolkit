@@ -127,7 +127,6 @@ build_raw_tx() {
             | foldl lambda acc a . 'echo $acc+$a'
     }
     token_result_balance="$(compute_token_result)"
-    # echo "token_result_balance=$token_result_balance"
     [[ ! -z $token_result_balance ]] && result_balance=$result_balance+"$token_result_balance"
   fi
 
