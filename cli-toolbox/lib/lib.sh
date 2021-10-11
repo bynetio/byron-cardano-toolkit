@@ -207,6 +207,18 @@ filter_utxo_by_tx() {
 }
 
 
+pretty_print_utxo() {
+    cnt=0; 
+    while read line; do 
+      cnt=$((cnt+1))
+      tx=$(echo $line | jq -r ".tx")
+      addr=$(echo $line | jq -r ".address")
+      tokens=$(get_utxo_tsv_value_at_tx $addr "$tx" | mappend_value | foldl lambda acc a . 'echo $acc+$a')
+      echo -ne "[$cnt]\t"
+      echo -e $line | jq -r ". | [.tx, .value.lovelace, \"$tokens\"] | @tsv"
+    done < <(cat - | jq -c ".[]")
+}
+
 get_utxo() {
     local addr=$1
     local datum_hash=$2
@@ -221,7 +233,7 @@ get_utxo() {
 	echo $utxos
     else
 	echo "At a given address $(shorten_addr $addr) there are multiple utxos, choose one: $(seq 1 $cnt | join ,)" > /dev/tty
-	get_utxos_filtered | jq > /dev/tty
+	get_utxos_filtered | pretty_print_utxo > /dev/tty
 	read  -p '> ' n < /dev/tty
 	if [[ $(seq 1 $cnt | grep -e "^$n\$" | wc -l) -eq 0 ]]; then
 	    echo 'No such element, choose again...' > /dev/tty
@@ -241,9 +253,6 @@ mappend_value() {
     token=$(echo $line | cut -d' ' -f2)
     value=$(echo $line | cut -d' ' -f3)
     asset="$curr.$token"
-
-    # echo "cvalue = $cvalue"
-    # echo "$casset == $asset"
 
     if [[ $casset == $asset ]]; then
       cvalue=$((value+cvalue))

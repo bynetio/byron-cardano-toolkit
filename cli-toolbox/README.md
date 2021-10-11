@@ -10,7 +10,7 @@ query-utxo.sh $(wallet.sh -a my-default)
 ```
 
 ```
-./mint-ft.sh -w ssledz -d $(./wallet.sh -a ssledz) -u policy1 -t Beer3 -n 100 -v 10000000
+mint-ft.sh -w ssledz -d $(./wallet.sh -a ssledz) -u policy1 -t Beer3 -n 100 -v 10000000
 ```
 
 ```
