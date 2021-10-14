@@ -148,6 +148,12 @@ EOF
   if_no_container cardano-node run_node_help > /dev/tty
 }
 
+wallet_cli() {
+  docker run \
+    -i \
+    --rm $WALLET_IMAGE "$@"
+}
+
 node_cli() {
     docker run \
 	   --name node-cli \

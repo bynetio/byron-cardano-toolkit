@@ -9,7 +9,9 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} [-h] [-l] [-c wallet_name [-d desc]] [-a wallet_name|id] [-k wallet_name|id] [-j wallet_name|id]
+  Usage: ${0##*/} [-h] [-l] [-r wallet_name [-d desc]] [-c wallet_name [-d desc]] [-a wallet_name|id] [-k wallet_name|id] [-j wallet_name|id]
+
+  -r wallet_name         Recreate wallet
 
   -c wallet_name         Creates wallet consisting of the following assets: 
                            * payment.skey
@@ -41,9 +43,13 @@ wallet_name=
 wallet_desc=
 wallet_identifier=
 
-while getopts ":a:j:k:d:c:lh" opt; do
+while getopts ":a:r:j:k:d:c:lh" opt; do
 
   case $opt in
+    r)
+      wallet_name="$OPTARG"
+      cmd="recreate"
+      ;;  
     c)
       wallet_name="$OPTARG"
       cmd="create"
@@ -94,6 +100,72 @@ shift $((OPTIND-1))
 
 [[ -z $cmd ]] && show_help && exit 1
 
+convert_keys() {
+  local key_name=$1
+  node_cli key convert-cardano-address-key \
+    --shelley-$key_name-key \
+    --signing-key-file /out/$key_name.prv \
+    --out-file /out/$key_name.skey
+
+  node_cli key verification-key \
+    --signing-key-file /out/$key_name.skey \
+    --verification-key-file /out/$key_name.evkey   
+
+  node_cli key non-extended-key \
+    --extended-verification-key-file /out/$key_name.evkey \
+    --verification-key-file /out/$key_name.vkey
+}
+
+generate_payment_addr() {
+  node_cli address build \
+	  --payment-verification-key-file /out/payment.vkey \
+	  --stake-verification-key-file /out/stake.vkey \
+	  --out-file /out/wallet.addr $NETWORK  
+}
+
+recreate_wallet() {
+  local wallet_name="$1"
+  local wallet_desc="$2"
+
+  local wallet_identifier=$(gen_uuid)
+  local wallet_dir=$WALLETS_DIR/$wallet_identifier
+
+  mkdir -p $wallet_dir
+  sandbox_dir=$wallet_dir
+
+  cat - > $sandbox_dir/phrase.txt
+  cat $sandbox_dir/phrase.txt | wallet_cli key from-recovery-phrase Shelley > $sandbox_dir/root.prv
+
+  list payment.vkey payment.skey stake.vkey stake.skey wallet.addr \
+    | peek lambda n . touch $sandbox_dir/'$n' > /dev/null
+
+  wallet_cli key child 1852H/1815H/0H/0/0 < $sandbox_dir/root.prv > $sandbox_dir/payment.prv
+  wallet_cli key public --without-chain-code < $sandbox_dir/payment.prv > $sandbox_dir/payment.pub
+
+  wallet_cli key child 1852H/1815H/0H/2/0    < $sandbox_dir/root.prv  > $sandbox_dir/stake.prv
+  wallet_cli key public --without-chain-code < $sandbox_dir/stake.prv > $sandbox_dir/stake.pub  
+
+  convert_keys payment
+  convert_keys stake
+  generate_payment_addr
+
+  echo "Wallet $wallet_identifier ($wallet_name) created"
+  
+  meta() {
+    cat << EOF
+  {
+    "address":"$(cat $wallet_dir/wallet.addr)",
+    "identifier":"$wallet_identifier",
+    "name":"$wallet_name",
+    "desc":"$wallet_desc"
+  }
+EOF
+  }
+
+  meta | jq > $wallet_dir/meta.json
+
+}
+
 create_wallet() {
 
   wallet_name="$1"
@@ -120,10 +192,7 @@ create_wallet() {
 	   --verification-key-file /out/stake.vkey \
 	   --signing-key-file /out/stake.skey
 
-  node_cli address build \
-	    --payment-verification-key-file /out/payment.vkey \
-	    --stake-verification-key-file /out/stake.vkey \
-	    --out-file /out/wallet.addr $NETWORK \
+  generate_payment_addr
 
   echo "Wallet $wallet_identifier ($wallet_name) created"
   
@@ -180,8 +249,11 @@ print_wallet() {
 }
 
 case $cmd in
+  "recreate")
+    recreate_wallet "$wallet_name" "$wallet_desc"
+    ;;
   "create")
-    create_wallet $wallet_name "$wallet_desc"
+    create_wallet "$wallet_name" "$wallet_desc"
     ;;
   "ls")
      list_wallets
