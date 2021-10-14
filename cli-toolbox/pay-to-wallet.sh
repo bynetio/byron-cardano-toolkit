@@ -126,6 +126,7 @@ build_raw_tx() {
             | mappend_value \
             | foldl lambda acc a . 'echo $acc+$a'
     }
+    pay_value=$pay_value+"$token"
     token_result_balance="$(compute_token_result)"
     [[ ! -z $token_result_balance ]] && result_balance=$result_balance+"$token_result_balance"
   fi
@@ -133,7 +134,7 @@ build_raw_tx() {
   node_cli transaction build-raw \
     --tx-in $utxo_in \
     --tx-out $source_addr+"$result_balance" \
-    --tx-out $dest_addr+$pay_value+"$token" \
+    --tx-out $dest_addr+"$pay_value" \
     --alonzo-era \
     --fee $fee \
     --out-file /out/tx.draft
