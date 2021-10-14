@@ -230,7 +230,7 @@ get_utxo() {
     local datum_hash=$2
 
     get_utxos_filtered() {
-	[[ -z $datum_hash ]] && get_utxos $addr || get_utxos $addr | filter_utxo_by_datum_hash $datum_hash
+	    [[ -z $datum_hash ]] && get_utxos $addr || get_utxos $addr | filter_utxo_by_datum_hash $datum_hash
     }
     
     local utxos=$(get_utxos_filtered | jq -r '.[].tx')
