@@ -6,6 +6,10 @@ shorten_addr() {
 	| join
 }
 
+trim() {
+  sed -e 's/^[ ]*\(.*[^ ]\) *$/\1/g'
+}
+
 ifn() {
     local pred=$1
     shift
@@ -219,9 +223,9 @@ pretty_print_utxo() {
       cnt=$((cnt+1))
       tx=$(echo $line | jq -r ".tx")
       addr=$(echo $line | jq -r ".address")
-      tokens=$(get_utxo_tsv_value_at_tx $addr "$tx" | mappend_value | foldl lambda acc a . 'echo $acc+$a')
-      echo -ne "[$cnt]\t"
-      echo -e $line | jq -r ". | [.tx, .value.lovelace, \"$tokens\"] | @tsv"
+      tokens=$(echo $line | jq -r ".value" | tokens_from_value | mappend_value | foldl lambda acc a . 'echo $acc+$a' | trim)
+      lovelace=$(echo $line | jq -r ".value.lovelace" | trim)
+      echo -e "[$cnt]\t$tx\t$lovelace |\t$tokens"
     done < <(cat - | jq -c ".[]")
 }
 
@@ -277,12 +281,15 @@ get_utxo_value2_at_tx() {
     get_utxos $addr | filter_utxo_by_tx $tx | jq -r ".value"
 }
 
+tokens_from_value() {
+  jq -r ". as \$v | keys | map(. as \$c | select(\$c!=\"lovelace\") | \$v[\$c] | keys | map(. as \$t | [\$c, \$t, \$v[\$c][]] | @tsv)  )" \
+    | jq -r ".[][]"
+}
+
 get_utxo_tsv_value_at_tx() {
   local addr=$1
   local tx=$2  
-  get_utxo_value2_at_tx $addr $tx \
-    | jq -r ". as \$v | keys | map(. as \$c | select(\$c!=\"lovelace\") | \$v[\$c] | keys | map(. as \$t | [\$c, \$t, \$v[\$c][]] | @tsv)  )" \
-    | jq -r ".[][]"
+  get_utxo_value2_at_tx $addr $tx | tokens_from_value
 }
 
 get_utxo_currencies_at_tx() {
