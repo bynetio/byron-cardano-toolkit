@@ -162,7 +162,7 @@ recreate_wallet() {
 EOF
   }
 
-  meta | jq > $wallet_dir/meta.json
+  meta | jq '' > $wallet_dir/meta.json
 
 }
 
@@ -207,7 +207,7 @@ create_wallet() {
 EOF
   }
 
-  meta | jq > $wallet_dir/meta.json
+  meta | jq '' > $wallet_dir/meta.json
 
 }
 
