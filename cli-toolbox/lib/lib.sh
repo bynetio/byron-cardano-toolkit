@@ -36,10 +36,61 @@ if_no_container() {
     ifn "docker ps -q -f name=$name" "$@"
 }
 
+if_container_not_running() {
+    local name=$1
+    shift
+    ifn "docker ps -q -f name=$name -f status=running" "$@"
+}
+
 if_container_stopped() {
     local name=$1
     shift
     ift "docker ps -q -f name=$name -f status=exited" "$@"
+}
+
+db_sync_run() {
+
+  list cardano-postgres db-sync-tmp db-sync-data | map λ vn . 'if_no_volume $vn docker volume create $vn'
+
+  if_no_container cardano-postgres docker run \
+    --name cardano-postgres \
+    --env POSTGRES_LOGGING=true \
+    --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+    --env POSTGRES_DB=$POSTGRES_DB \
+    --env POSTGRES_USER=$POSTGRES_USER \
+    -v cardano-postgres:/var/lib/postgresql/data \
+    -p $POSTGRES_PORT:5432 \
+    -d \
+    $POSTGRES_IMAGE
+
+  if_no_container cardano-db-sync docker run \
+    -d \
+    --name cardano-db-sync \
+    --network host \
+    --env POSTGRES_DB=$POSTGRES_DB \
+    --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+    --env POSTGRES_USER=$POSTGRES_USER \
+    --env POSTGRES_HOST=127.0.0.1 \
+    --env POSTGRES_PORT=$POSTGRES_PORT \
+    --env RESTORE_SNAPSHOT=${RESTORE_SNAPSHOT:-} \
+    --env RESTORE_RECREATE_DB=N \
+    -v db-sync-tmp:/tmp \
+    -v db-sync-data:/var/lib/cdbsync \
+    -v node-ipc:/node-ipc \
+    -v config:/config \
+    $DB_SYNC_IMAGE \
+      --config /config/db-sync-config.json \
+      --socket-path /node-ipc/socket
+}
+
+sql() {
+  docker exec -i cardano-postgres psql -U postgres cexplorer    
+}
+
+db_sync_rm() {
+    docker stop cardano-db-sync
+    docker rm cardano-db-sync
+    list db-sync-tmp db-sync-data | map λ vn . 'docker volume rm $vn'
 }
 
 node_run() {
