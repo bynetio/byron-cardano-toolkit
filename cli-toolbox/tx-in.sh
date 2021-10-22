@@ -8,11 +8,11 @@ source $dir/lib/lib.sh
 
 q_tx_inputs() {
     cat <<EOF
-    select tx_out.* from tx_out
+    select  json_agg(row_to_json(tx_out)) from tx_out
       inner join tx_in on tx_out.tx_id = tx_in.tx_out_id
       inner join tx on tx.id = tx_in.tx_in_id and tx_in.tx_out_index = tx_out.index
       where tx.hash = '\x$1'
 EOF
 }
 
-q_tx_inputs $1 | sql
+q_tx_inputs $1 | sql -t | jq

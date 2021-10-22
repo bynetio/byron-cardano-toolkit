@@ -24,3 +24,5 @@ EOF
 q_progress | sql
 
 echo 'select now () - max (time) as behind_by from block' | sql
+
+echo "select pg_size_pretty (pg_database_size ('cexplorer'))" | sql
