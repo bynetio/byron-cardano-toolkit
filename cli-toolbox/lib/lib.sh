@@ -84,7 +84,7 @@ db_sync_run() {
 }
 
 sql() {
-  docker exec -i cardano-postgres psql -U postgres cexplorer    
+  docker exec -i cardano-postgres psql -U postgres cexplorer "$@"
 }
 
 db_sync_rm() {
