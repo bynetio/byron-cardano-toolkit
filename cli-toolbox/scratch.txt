@@ -1,0 +1,62 @@
+docker volume create cardano-postgres
+
+docker run \
+  --name cardano-postgres \
+  --env POSTGRES_LOGGING=true \
+  --env POSTGRES_PASSWORD=test \
+  --env POSTGRES_DB=cexplorer \
+  --env POSTGRES_USER=postgres \
+  -v cardano-postgres:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  -d \
+  postgres:11.5-alpine
+
+docker volume create db-sync-tmp
+docker volume create db-sync-data
+
+docker run \
+  --name cardano-db-sync \
+  --rm \
+  --env NETWORK=testnet \
+  --env POSTGRES_DB=cexplorer \
+  --env POSTGRES_PASSWORD=test \
+  --env POSTGRES_USER=postgres \
+  --env POSTGRES_HOST=localhost \
+  --env POSTGRES_PORT=5432 \
+  --env RESTORE_SNAPSHOT=${RESTORE_SNAPSHOT:-} \
+  --env RESTORE_RECREATE_DB=N \
+  -v db-sync-tmp:/tmp \
+  -v db-sync-data:/var/lib/cdbsync \
+  -v node-ipc:/node-ipc \
+  inputoutput/cardano-db-sync:11.0.4
+
+docker volume create config-2
+
+docker run --rm -v config-2:/config ssledz/cardano-node-config:testnet
+
+docker run \
+  --name cardano-db-sync \
+  --rm \
+  --network host \
+  --env POSTGRES_DB=cexplorer \
+  --env POSTGRES_PASSWORD=test \
+  --env POSTGRES_USER=postgres \
+  --env POSTGRES_HOST=127.0.0.1 \
+  --env POSTGRES_PORT=5432 \
+  --env RESTORE_SNAPSHOT=${RESTORE_SNAPSHOT:-} \
+  --env RESTORE_RECREATE_DB=N \
+  -v $(pwd)/tmp:/tmp \
+  -v db-sync-data:/var/lib/cdbsync \
+  -v node-ipc:/node-ipc \
+  -v config-2:/config \
+  inputoutput/cardano-db-sync:11.0.4 \
+    --config /config/db-sync-config.json \
+    --socket-path /node-ipc/socket
+
+  docker exec -it cardano-postgres /bin/bash
+
+ echo 'select row_to_json(t) from (select now () - max (time) as behind_by from block) t' \
+   | docker exec -i cardano-postgres psql -U postgres cexplorer -t | jq
+
+ echo 'select json_agg(row_to_json(t)) from (select now () - max (time) as behind_by from block) t' \
+   | docker exec -i cardano-postgres psql -U postgres cexplorer -t | jq

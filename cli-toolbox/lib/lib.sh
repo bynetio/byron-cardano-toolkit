@@ -94,7 +94,15 @@ db_sync_rm() {
 }
 
 node_run() {
-    list data node-ipc config | map λ vn . 'if_no_volume $vn docker volume create $vn'
+    list data config | map λ vn . 'if_no_volume $vn docker volume create $vn'
+
+    if [[ -z $NODE_SOCKET_DIR ]]; then
+      if_no_volume node-ipc docker volume create node-ipc
+    else
+      mkdir -p $NODE_SOCKET_DIR
+      if_no_volume node-ipc docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR node-ipc
+    fi
+
     if_no_container cardano-node docker run \
 		    --rm \
 		    -v config:/config \
@@ -157,13 +165,27 @@ EOF
     }
     
     run_node_help() {
+
+
+      emit_create_socket_dir() {
+        [[ -z $NODE_SOCKET_DIR ]] || echo "mkdir -p $NODE_SOCKET_DIR"
+      }
+
+      emit_create_node_ipc() {
+        if [[ -z $NODE_SOCKET_DIR ]]; then
+          echo "docker volume create node-ipc"
+        else
+          echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR node-ipc"
+        fi
+      }
 	
       
 	cat <<EOF
 Cardano node does not exists, run one using following commands:
 
     docker volume create data
-    docker volume create node-ipc
+    $(emit_create_socket_dir)
+    $(emit_create_node_ipc)
     docker volume create config
 
     docker run \\
