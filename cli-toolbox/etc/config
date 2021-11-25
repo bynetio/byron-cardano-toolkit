@@ -8,6 +8,9 @@ WALLETS_DIR=/home/ssledz/git/iohk-dev/.cardano-wallets
 SANDBOX_ROOT_DIR=/tmp/cli-toolbox
 
 NODE_SOCKET_DIR=$HOME/.cardano-node/node-ipc
+NODE_CONTAINER_NAME=cardano-node
+NODE_CONTAINER_SOCKET_PATH=/ipc/socket
+NODE_IPC_VOLUME_NAME=node-ipc
 
 POSTGRES_IMAGE="postgres:11.5-alpine"
 POSTGRES_PASSWORD=test

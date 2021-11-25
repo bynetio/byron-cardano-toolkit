@@ -76,7 +76,7 @@ db_sync_run() {
     --env RESTORE_RECREATE_DB=N \
     -v db-sync-tmp:/tmp \
     -v db-sync-data:/var/lib/cdbsync \
-    -v node-ipc:/node-ipc \
+    -v $NODE_IPC_VOLUME_NAME:/node-ipc \
     -v config:/config \
     $DB_SYNC_IMAGE \
       --config /config/db-sync-config.json \
@@ -97,21 +97,21 @@ node_run() {
     list data config | map λ vn . 'if_no_volume $vn docker volume create $vn'
 
     if [[ -z $NODE_SOCKET_DIR ]]; then
-      if_no_volume node-ipc docker volume create node-ipc
+      if_no_volume $NODE_IPC_VOLUME_NAME docker volume create $NODE_IPC_VOLUME_NAME
     else
       mkdir -p $NODE_SOCKET_DIR
-      if_no_volume node-ipc docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR node-ipc
+      if_no_volume $NODE_IPC_VOLUME_NAME docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR $NODE_IPC_VOLUME_NAME
     fi
 
-    if_no_container cardano-node docker run \
+    if_no_container $NODE_CONTAINER_NAME docker run \
 		    --rm \
 		    -v config:/config \
 		    $CONFIG_IMAGE
     
-    if_no_container cardano-node  docker run \
+    if_no_container $NODE_CONTAINER_NAME  docker run \
 		    -d \
-		    --name cardano-node \
-		    -v node-ipc:/opt/cardano/ipc \
+		    --name $NODE_CONTAINER_NAME \
+		    -v $NODE_IPC_VOLUME_NAME:/opt/cardano/ipc \
 		    -v data:/opt/cardano/data \
 		    -v config:/opt/cardano/config \
 		    -p 3001:3001 \
@@ -123,9 +123,9 @@ node_run() {
 }
 
 node_rm() {
-    docker stop cardano-node
-    docker rm cardano-node
-    list data node-ipc config | map λ vn . 'docker volume rm $vn'
+    docker stop $NODE_CONTAINER_NAME
+    docker rm $NODE_CONTAINER_NAME
+    list data $NODE_IPC_VOLUME_NAME config | map λ vn . 'docker volume rm $vn'
 }
 
 assert_cardano_node_exists() {
@@ -148,7 +148,7 @@ assert_cardano_node_exists() {
 
 Cardano node is stopped, please start it again using following command:
 
-    docker start cardano-node
+    docker start $NODE_CONTAINER_NAME
 
 EOF
 
@@ -156,7 +156,7 @@ EOF
 	read -p "I can start it for you [y/n]: " -n1 key < /dev/tty
 	echo
 	if [[ $key == 'y' ]]; then
-	    docker start cardano-node > /dev/null
+	    docker start $NODE_CONTAINER_NAME > /dev/null
 	    ask_for_continuation
 	else
 	    echo
@@ -173,9 +173,9 @@ EOF
 
       emit_create_node_ipc() {
         if [[ -z $NODE_SOCKET_DIR ]]; then
-          echo "docker volume create node-ipc"
+          echo "docker volume create $NODE_IPC_VOLUME_NAME"
         else
-          echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR node-ipc"
+          echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR $NODE_IPC_VOLUME_NAME"
         fi
       }
 	
@@ -195,8 +195,8 @@ Cardano node does not exists, run one using following commands:
 
     docker run \\
       -d \\
-      --name cardano-node \\
-      -v node-ipc:/opt/cardano/ipc \\
+      --name $NODE_CONTAINER_NAME \\
+      -v $NODE_IPC_VOLUME_NAME:/opt/cardano/ipc \\
       -v data:/opt/cardano/data \\
       -v config:/opt/cardano/config \\
       -p 3001:3001 \\
@@ -220,9 +220,9 @@ EOF
         fi
     } 
 
-  if_container_stopped cardano-node start_node_help  > /dev/tty
+  if_container_stopped $NODE_CONTAINER_NAME start_node_help  > /dev/tty
     
-  if_no_container cardano-node run_node_help > /dev/tty
+  if_no_container $NODE_CONTAINER_NAME run_node_help > /dev/tty
 }
 
 wallet_cli() {
@@ -237,8 +237,8 @@ node_cli() {
 	   --rm \
 	   --entrypoint cardano-cli \
 	   -e NETWORK=testnet \
-	   -e CARDANO_NODE_SOCKET_PATH=/ipc/socket \
-	   -v node-ipc:/ipc \
+	   -e CARDANO_NODE_SOCKET_PATH=$NODE_CONTAINER_SOCKET_PATH \
+	   -v $NODE_IPC_VOLUME_NAME:/ipc \
 	   -v ${sandbox_dir}:/out \
 	   $NODE_IMAGE "$@"
 }
