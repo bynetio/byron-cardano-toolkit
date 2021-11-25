@@ -213,7 +213,7 @@ EOF
 
 wallet_path_by_id() {
   local id=$1
-  find $WALLETS_DIR -iname meta.json | while read line; do
+  find -L $WALLETS_DIR -iname meta.json | while read line; do
       if [[ $(cat $line | jq -r '.name, .identifier' | egrep "^$id$" | wc -l) -eq 1 ]]; then
         dirname $line
       fi
@@ -222,7 +222,7 @@ wallet_path_by_id() {
 
 list_wallets() {
   echo -e "Id\t\t\t\t\tName\t\tDesc\n=============================================================="; 
-  find $WALLETS_DIR -iname meta.json | xargs cat | jq -r '([.identifier, .name, .desc]) | @tsv'
+  find -L $WALLETS_DIR -iname meta.json | xargs cat | jq -r '([.identifier, .name, .desc]) | @tsv'
 }
 
 find_one_wallet() {
