@@ -31,6 +31,8 @@ show_help() {
 
   -l                     list all wallets
 
+  -g                     generate phrase
+
   -h                     Print this help.
 
   All wallets can be found here: $WALLETS_DIR
@@ -43,7 +45,7 @@ wallet_name=
 wallet_desc=
 wallet_identifier=
 
-while getopts ":a:r:j:k:d:c:lh" opt; do
+while getopts ":a:r:j:k:d:c:lgh" opt; do
 
   case $opt in
     r)
@@ -59,6 +61,9 @@ while getopts ":a:r:j:k:d:c:lh" opt; do
       ;;
     l)
       cmd="ls"
+      ;;  
+     g)
+      cmd="gen-phrase"
       ;;  
     a)
       cmd="print_address"
@@ -249,6 +254,9 @@ print_wallet() {
 }
 
 case $cmd in
+  "gen-phrase")
+    docker run -i --rm $WALLET_IMAGE recovery-phrase generate
+    ;;
   "recreate")
     recreate_wallet "$wallet_name" "$wallet_desc"
     ;;

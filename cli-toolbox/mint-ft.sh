@@ -61,9 +61,9 @@ while getopts ":w:d:m:v:n:t:u:h" opt; do
       ;;
     u)
       policy_wallet=$OPTARG
-      policy_skey_path=$($dir/wallet.sh -k $wallet)
+      policy_skey_path=$($dir/wallet.sh -k $policy_wallet)
       [[ $? -ne 0 ]] && exit 1
-      policy_vkey_path=$($dir/wallet.sh -j $wallet)
+      policy_vkey_path=$($dir/wallet.sh -j $policy_wallet)
       ;;
     h)
       show_help
