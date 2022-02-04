@@ -7,10 +7,11 @@ CONFIG_IMAGE="ssledz/cardano-node-config:testnet"
 WALLETS_DIR=/home/ssledz/git/iohk-dev/.cardano-wallets
 SANDBOX_ROOT_DIR=/tmp/cli-toolbox
 
+STACK_PREFIX="testnet"
+
 NODE_SOCKET_DIR=$HOME/.cardano-node/node-ipc
-NODE_CONTAINER_NAME=cardano-node
+NODE_PORT=3001
 NODE_CONTAINER_SOCKET_PATH=/ipc/socket
-NODE_IPC_VOLUME_NAME=node-ipc
 
 POSTGRES_IMAGE="postgres:11.5-alpine"
 POSTGRES_PASSWORD=test
