@@ -49,72 +49,86 @@ if_container_stopped() {
 }
 
 db_sync_run() {
+    list cardano-postgres \
+         ${STACK_PREFIX}_db-sync-tmp \
+         ${STACK_PREFIX}_db-sync-data \
+        | map λ vn . 'if_no_volume $vn docker volume create $vn'
 
-  list cardano-postgres db-sync-tmp db-sync-data | map λ vn . 'if_no_volume $vn docker volume create $vn'
+    if_no_container \
+        ${STACK_PREFIX}_cardano-postgres docker run \
+        --name ${STACK_PREFIX}_cardano-postgres \
+        --env POSTGRES_LOGGING=true \
+        --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+        --env POSTGRES_DB=$POSTGRES_DB \
+        --env POSTGRES_USER=$POSTGRES_USER \
+        -v ${STACK_PREFIX}_cardano-postgres:/var/lib/postgresql/data \
+        -p $POSTGRES_PORT:5432 \
+        -d \
+        $POSTGRES_IMAGE
 
-  if_no_container cardano-postgres docker run \
-    --name cardano-postgres \
-    --env POSTGRES_LOGGING=true \
-    --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
-    --env POSTGRES_DB=$POSTGRES_DB \
-    --env POSTGRES_USER=$POSTGRES_USER \
-    -v cardano-postgres:/var/lib/postgresql/data \
-    -p $POSTGRES_PORT:5432 \
-    -d \
-    $POSTGRES_IMAGE
-
-  if_no_container cardano-db-sync docker run \
-    -d \
-    --name cardano-db-sync \
-    --network host \
-    --env POSTGRES_DB=$POSTGRES_DB \
-    --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
-    --env POSTGRES_USER=$POSTGRES_USER \
-    --env POSTGRES_HOST=127.0.0.1 \
-    --env POSTGRES_PORT=$POSTGRES_PORT \
-    --env RESTORE_SNAPSHOT=${RESTORE_SNAPSHOT:-} \
-    --env RESTORE_RECREATE_DB=N \
-    -v db-sync-tmp:/tmp \
-    -v db-sync-data:/var/lib/cdbsync \
-    -v $NODE_IPC_VOLUME_NAME:/node-ipc \
-    -v config:/config \
-    $DB_SYNC_IMAGE \
-      --config /config/db-sync-config.json \
-      --socket-path /node-ipc/socket
+    if_no_containerno_container \
+        ${STACK_PREFIX}_cardano-db-sync docker run \
+        -d \
+        --name ${STACK_PREFIX}_cardano-db-sync \
+        --network host \
+        --env POSTGRES_DB=$POSTGRES_DB \
+        --env POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+        --env POSTGRES_USER=$POSTGRES_USER \
+        --env POSTGRES_HOST=127.0.0.1 \
+        --env POSTGRES_PORT=$POSTGRES_PORT \
+        --env RESTORE_SNAPSHOT=${RESTORE_SNAPSHOT:-} \
+        --env RESTORE_RECREATE_DB=N \
+        -v ${STACK_PREFIX}_db-sync-tmp:/tmp \
+        -v ${STACK_PREFIX}_db-sync-data:/var/lib/cdbsync \
+        -v ${STACK_PREFIX}_node-ipc:/node-ipc \
+        -v ${STACK_PREFIX}_config:/config \
+        $DB_SYNC_IMAGE \
+        --config /config/db-sync-config.json \
+        --socket-path /node-ipc/socket
 }
 
 sql() {
-  docker exec -i cardano-postgres psql -U postgres cexplorer "$@"
+    docker exec -i ${STACK_PREFIX}_cardano-postgres psql -U postgres cexplorer "$@"
 }
 
 db_sync_rm() {
-    docker stop cardano-db-sync
-    docker rm cardano-db-sync
-    list db-sync-tmp db-sync-data | map λ vn . 'docker volume rm $vn'
+    docker stop ${STACK_PREFIX}_cardano-db-sync
+    docker rm ${STACK_PREFIX}_cardano-db-sync
+    list ${STACK_PREFIX}_db-sync-tmp \
+         ${STACK_PREFIX}_db-sync-data \
+        | map λ vn . 'docker volume rm $vn'
 }
 
 node_run() {
-    list data config | map λ vn . 'if_no_volume $vn docker volume create $vn'
+    list ${STACK_PREFIX}_data \
+         ${STACK_PREFIX}_config \
+        | map λ vn . 'if_no_volume $vn docker volume create $vn'
 
     if [[ -z $NODE_SOCKET_DIR ]]; then
-      if_no_volume $NODE_IPC_VOLUME_NAME docker volume create $NODE_IPC_VOLUME_NAME
+        if_no_volume ${STACK_PREFIX}_node-ipc docker volume create $NODE_IPC_VOLUME_NAME
     else
-      mkdir -p $NODE_SOCKET_DIR
-      if_no_volume $NODE_IPC_VOLUME_NAME docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR $NODE_IPC_VOLUME_NAME
+        mkdir -p $NODE_SOCKET_DIR
+        if_no_volume ${STACK_PREFIX}_node-ipc \
+                     docker volume create \
+                     --driver local \
+                     -o o=bind \
+                     -o type=none \
+                     -o device=$NODE_SOCKET_DIR \
+                     ${STACK_PREFIX}_node-ipc
     fi
 
-    if_no_container $NODE_CONTAINER_NAME docker run \
+    if_no_container ${STACK_PREFIX}_cardano-node docker run \
 		    --rm \
-		    -v config:/config \
+		    -v ${STACK_PREFIX}_config:/config \
 		    $CONFIG_IMAGE
-    
-    if_no_container $NODE_CONTAINER_NAME  docker run \
+
+    if_no_container ${STACK_PREFIX}_cardano-node docker run \
 		    -d \
-		    --name $NODE_CONTAINER_NAME \
-		    -v $NODE_IPC_VOLUME_NAME:/opt/cardano/ipc \
-		    -v data:/opt/cardano/data \
-		    -v config:/opt/cardano/config \
-		    -p 3001:3001 \
+		    --name ${STACK_PREFIX}_cardano-node \
+		    -v ${STACK_PREFIX}_node-ipc:/opt/cardano/ipc \
+		    -v ${STACK_PREFIX}_data:/opt/cardano/data \
+		    -v ${STACK_PREFIX}_config:/opt/cardano/config \
+		    -p $NODE_PORT:3001 \
 		    $NODE_IMAGE \
 		    run \
 		    --config /opt/cardano/config/node-config.json \
@@ -123,9 +137,10 @@ node_run() {
 }
 
 node_rm() {
-    docker stop $NODE_CONTAINER_NAME
-    docker rm $NODE_CONTAINER_NAME
-    list data $NODE_IPC_VOLUME_NAME config | map λ vn . 'docker volume rm $vn'
+    docker stop ${STACK_PREFIX}_cardano-node
+    docker rm ${STACK_PREFIX}_cardano-node
+    list ${STACK_PREFIX}_data ${STACK_PREFIX}_node-ipc ${STACK_PREFIX}_config \
+        | map λ vn . 'docker volume rm $vn'
 }
 
 assert_cardano_node_exists() {
@@ -141,14 +156,14 @@ assert_cardano_node_exists() {
 	    exit 1
 	fi
     }
-    
+
     start_node_help() {
 
 	cat <<EOF
 
 Cardano node is stopped, please start it again using following command:
 
-    docker start $NODE_CONTAINER_NAME
+    docker start ${STACK_PREFIX}_cardano-node
 
 EOF
 
@@ -156,14 +171,14 @@ EOF
 	read -p "I can start it for you [y/n]: " -n1 key < /dev/tty
 	echo
 	if [[ $key == 'y' ]]; then
-	    docker start $NODE_CONTAINER_NAME > /dev/null
+	    docker start ${STACK_PREFIX}_cardano-node > /dev/null
 	    ask_for_continuation
 	else
 	    echo
 	    exit 2
         fi
     }
-    
+
     run_node_help() {
 
 
@@ -173,33 +188,32 @@ EOF
 
       emit_create_node_ipc() {
         if [[ -z $NODE_SOCKET_DIR ]]; then
-          echo "docker volume create $NODE_IPC_VOLUME_NAME"
+            echo "docker volume create ${STACK_PREFIX}_node-ipc"
         else
-          echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR $NODE_IPC_VOLUME_NAME"
+            echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR ${STACK_PREFIX}_node-ipc"
         fi
       }
-	
-      
+
 	cat <<EOF
 Cardano node does not exists, run one using following commands:
 
-    docker volume create data
+    docker volume create ${STACK_PREFIX}_data
     $(emit_create_socket_dir)
     $(emit_create_node_ipc)
-    docker volume create config
+    docker volume create ${STACK_PREFIX}_config
 
     docker run \\
       --rm \\
-      -v config:/config \\
+      -v ${STACK_PREFIX}_config:/config \\
       $CONFIG_IMAGE
 
     docker run \\
       -d \\
-      --name $NODE_CONTAINER_NAME \\
-      -v $NODE_IPC_VOLUME_NAME:/opt/cardano/ipc \\
-      -v data:/opt/cardano/data \\
-      -v config:/opt/cardano/config \\
-      -p 3001:3001 \\
+      --name ${STACK_PREFIX}_cardano-node \\
+      -v ${STACK_PREFIX}_node-ipc:/opt/cardano/ipc \\
+      -v ${STACK_PREFIX}_data:/opt/cardano/data \\
+      -v ${STACK_PREFIX}_config:/opt/cardano/config \\
+      -p $NODE_PORT:3001 \\
       $NODE_IMAGE \\
       run \\
       --config /opt/cardano/config/node-config.json \\
@@ -218,11 +232,11 @@ EOF
 	    echo
 	    exit 4
         fi
-    } 
+    }
 
-  if_container_stopped $NODE_CONTAINER_NAME start_node_help  > /dev/tty
-    
-  if_no_container $NODE_CONTAINER_NAME run_node_help > /dev/tty
+    if_container_stopped ${STACK_PREFIX}_cardano-node start_node_help  > /dev/tty
+
+    if_no_container ${STACK_PREFIX}_cardano-node run_node_help > /dev/tty
 }
 
 wallet_cli() {
@@ -238,7 +252,7 @@ node_cli() {
 	   --entrypoint cardano-cli \
 	   -e NETWORK=testnet \
 	   -e CARDANO_NODE_SOCKET_PATH=$NODE_CONTAINER_SOCKET_PATH \
-	   -v $NODE_IPC_VOLUME_NAME:/ipc \
+	   -v ${STACK_PREFIX}_node-ipc:/ipc \
 	   -v ${sandbox_dir}:/out \
 	   $NODE_IMAGE "$@"
 }
