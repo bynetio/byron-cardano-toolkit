@@ -12,14 +12,14 @@ show_help() {
   Usage: ${0##*/} [-h]
 
   Shut down running node.
- 
+
   -h                     Print this help.
 
 EOF
 }
 
 while getopts "h" opt; do
-    
+
     case $opt in
 	h)
 	    show_help
@@ -42,9 +42,10 @@ while getopts "h" opt; do
 	    exit 3
 	    ;;
     esac
-    
+
 done
 
 shift $((OPTIND-1))
 
 node_rm
+db_sync_rm

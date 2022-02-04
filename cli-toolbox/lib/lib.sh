@@ -42,14 +42,32 @@ if_container_not_running() {
     ifn "docker ps -q -f name=$name -f status=running" "$@"
 }
 
+if_container_running() {
+    local name=$1
+    shift
+    ift "docker ps -q -f name=$name -f status=running" "$@"
+}
+
+
 if_container_stopped() {
     local name=$1
     shift
     ift "docker ps -q -f name=$name -f status=exited" "$@"
 }
 
+wait_for_psql_ready() {
+    while true; do
+        sleep 1
+        echo 'waiting for psql to be ready'
+        docker exec -it \
+               ${STACK_PREFIX}_cardano-postgres \
+               psql -U $POSTGRES_USER -c 'select 1' > /dev/null
+        [[ $? -eq 0 ]] && break
+    done
+}
+
 db_sync_run() {
-    list cardano-postgres \
+    list ${STACK_PREFIX}_cardano-postgres \
          ${STACK_PREFIX}_db-sync-tmp \
          ${STACK_PREFIX}_db-sync-data \
         | map λ vn . 'if_no_volume $vn docker volume create $vn'
@@ -66,7 +84,11 @@ db_sync_run() {
         -d \
         $POSTGRES_IMAGE
 
-    if_no_containerno_container \
+    wait_for_psql_ready
+
+    if_container_running \
+        ${STACK_PREFIX}_cardano-node \
+        if_no_container \
         ${STACK_PREFIX}_cardano-db-sync docker run \
         -d \
         --name ${STACK_PREFIX}_cardano-db-sync \
@@ -85,6 +107,23 @@ db_sync_run() {
         $DB_SYNC_IMAGE \
         --config /config/db-sync-config.json \
         --socket-path /node-ipc/socket
+}
+
+assert_cardano_db_sync_exists() {
+
+    start_db_sync_help() {
+        docker start ${STACK_PREFIX}_cardano-postgres
+        wait_for_psql_ready
+        docker start ${STACK_PREFIX}_cardano-db-sync
+    }
+
+    run_db_sync_help() {
+        db_sync_run
+    }
+
+    if_container_stopped ${STACK_PREFIX}_cardano-db-sync start_db_sync_help  > /dev/tty
+
+    if_no_container ${STACK_PREFIX}_cardano-db-sync run_db_sync_help > /dev/tty
 }
 
 sql() {
@@ -136,6 +175,17 @@ node_run() {
 		    --port 3001
 }
 
+db_sync_rm() {
+    docker stop ${STACK_PREFIX}_cardano-db-sync
+    docker rm ${STACK_PREFIX}_cardano-db-sync
+    docker stop ${STACK_PREFIX}_cardano-postgres
+    docker rm ${STACK_PREFIX}_cardano-postgres
+    list ${STACK_PREFIX}_cardano-postgres \
+         ${STACK_PREFIX}_db-sync-tmp \
+         ${STACK_PREFIX}_db-sync-data \
+        | map λ vn . 'docker volume rm $vn'
+}
+
 node_rm() {
     docker stop ${STACK_PREFIX}_cardano-node
     docker rm ${STACK_PREFIX}_cardano-node
@@ -146,20 +196,20 @@ node_rm() {
 assert_cardano_node_exists() {
 
     ask_for_continuation() {
-	echo -e "\nPlease wait couple of seconds, in order to give some time to node to fully synchronize with the ledger"
-	echo -ne '\nContinue [y/n]: '
-	read -n1 key < /dev/tty
-	echo -e "\n\nSync progress: $(get_node_sync_progress)"
-	echo
-	if [[ $key == 'n' ]]; then
-	    echo
-	    exit 1
-	fi
+	      echo -e "\nPlease wait couple of seconds, in order to give some time to node to fully synchronize with the ledger"
+	      echo -ne '\nContinue [y/n]: '
+	      read -n1 key < /dev/tty
+	      echo -e "\n\nSync progress: $(get_node_sync_progress)"
+	      echo
+	      if [[ $key == 'n' ]]; then
+	          echo
+	          exit 1
+	      fi
     }
 
     start_node_help() {
 
-	cat <<EOF
+	      cat <<EOF
 
 Cardano node is stopped, please start it again using following command:
 
@@ -167,34 +217,34 @@ Cardano node is stopped, please start it again using following command:
 
 EOF
 
-	local key
-	read -p "I can start it for you [y/n]: " -n1 key < /dev/tty
-	echo
-	if [[ $key == 'y' ]]; then
-	    docker start ${STACK_PREFIX}_cardano-node > /dev/null
-	    ask_for_continuation
-	else
-	    echo
-	    exit 2
+	      local key
+	      read -p "I can start it for you [y/n]: " -n1 key < /dev/tty
+	      echo
+	      if [[ $key == 'y' ]]; then
+	          docker start ${STACK_PREFIX}_cardano-node > /dev/null
+	          ask_for_continuation
+	      else
+	          echo
+	          exit 2
         fi
     }
 
-    run_node_help() {
+    run_node_helpode_help() {
 
 
-      emit_create_socket_dir() {
-        [[ -z $NODE_SOCKET_DIR ]] || echo "mkdir -p $NODE_SOCKET_DIR"
-      }
+        emit_create_socket_dir() {
+            [[ -z $NODE_SOCKET_DIR ]] || echo "mkdir -p $NODE_SOCKET_DIR"
+        }
 
-      emit_create_node_ipc() {
-        if [[ -z $NODE_SOCKET_DIR ]]; then
-            echo "docker volume create ${STACK_PREFIX}_node-ipc"
-        else
-            echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR ${STACK_PREFIX}_node-ipc"
-        fi
-      }
+        emit_create_node_ipc() {
+            if [[ -z $NODE_SOCKET_DIR ]]; then
+                echo "docker volume create ${STACK_PREFIX}_node-ipc"
+            else
+                echo "docker volume create --driver local -o o=bind -o type=none -o device=$NODE_SOCKET_DIR ${STACK_PREFIX}_node-ipc"
+            fi
+        }
 
-	cat <<EOF
+	      cat <<EOF
 Cardano node does not exists, run one using following commands:
 
     docker volume create ${STACK_PREFIX}_data
@@ -222,15 +272,15 @@ Cardano node does not exists, run one using following commands:
 
 EOF
 
-	local key
-	read -p "I can run the commnads for you [y/n]: " -n1 key < /dev/tty
-	echo
-	if [[ $key == 'y' ]]; then
-	    node_run
-	    ask_for_continuation
-	else
-	    echo
-	    exit 4
+	      local key
+	      read -p "I can run the commnads for you [y/n]: " -n1 key < /dev/tty
+	      echo
+	      if [[ $key == 'y' ]]; then
+	          node_run
+	          ask_for_continuation
+	      else
+	          echo
+	          exit 4
         fi
     }
 

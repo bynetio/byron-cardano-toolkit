@@ -21,6 +21,8 @@ q_progress() {
 EOF
 }
 
+assert_cardano_db_sync_exists
+
 q_progress | sql
 
 echo 'select now () - max (time) as behind_by from block' | sql
