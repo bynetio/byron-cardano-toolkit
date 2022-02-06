@@ -21,6 +21,8 @@ show_help() {
   -n token-amount
   -m token-meta-json-path
   -b slots-after-now          Number of slots since now after which we are not allowed to mint and burn
+  -s policy-dir-path          Path to the dir where policy should be saved.
+  -l policy-path              Loads a given policy.
   -h                          Print this help.
 
 EOF
@@ -36,12 +38,20 @@ token_name=
 token_amount=
 token_meta_path=
 slots_after_now=
+policy_saved_dir=
+policy_path=
 
-while getopts ":w:d:m:v:n:t:u:b:h" opt; do
+while getopts ":w:d:m:v:n:t:u:b:l:s:h" opt; do
 
   case $opt in
     v)
       lovelace_amount=$OPTARG
+      ;;
+    s)
+      policy_saved_dir=$OPTARG
+      ;;
+    l)
+      policy_path=$OPTARG
       ;;
     b)
       slots_after_now=$OPTARG
@@ -182,14 +192,27 @@ init_sandbox() {
   cp $policy_skey_path $sandbox_dir/policy.skey
   cp $policy_vkey_path $sandbox_dir/policy.vkey
   get_protocol_params > $sandbox_dir/protocol.json
-  gen_policy_script $(hash_from_key policy.vkey) > $sandbox_dir/policy.script
+
+  if [[ -z $policy_path ]]; then
+      gen_policy_script $(hash_from_key policy.vkey) > $sandbox_dir/policy.script
+  else
+     cp $policy_path $sandbox_dir/policy.script
+  fi
   get_policy_id policy.script > $sandbox_dir/policy.id
-  if [[ -z $token_meta_path ]]; then 
+  if [[ -z $token_meta_path ]]; then
     token_meta_path=$sandbox_dir/token_meta-template.json
     default_token_meta_json > $token_meta_path
   fi
   local policy_id="$(cat $sandbox_dir/policy.id)"
   token_meta_json_process $token_meta_path "$policy_id" "$token_name" > $sandbox_dir/token_meta.json
+}
+
+save_policy_if_requested() {
+    if [[ -n $policy_saved_dir ]]; then
+        mkdir -p $policy_saved_dir
+        cp $sandbox_dir/policy.script $policy_saved_dir/
+        cp $sandbox_dir/policy.id $policy_saved_dir/
+    fi
 }
 
 build_raw_tx() {
@@ -202,6 +225,8 @@ build_raw_tx() {
 
   token_value="$token_amount $policy_id.$token_name"
 
+  slot_number=$(expr $(get_tip | jq .slot?) + ${slots_after_now:-100000})
+
   node_cli transaction build-raw \
     --tx-in "$utxo_in" \
     --tx-out $dest_addr+$lovelace_amount+"$token_value" \
@@ -210,6 +235,7 @@ build_raw_tx() {
     --minting-script-file /out/policy.script \
     --alonzo-era \
     --fee 0 \
+    --invalid-hereafter $slot_number \
     --out-file /out/tx.draft
 #    --metadata-json-file /out/token_meta.json \
 
@@ -232,6 +258,7 @@ build_raw_tx() {
     --fee $fee \
     --mint="$token_value" \
     --minting-script-file /out/policy.script \
+    --invalid-hereafter $slot_number \
     --out-file /out/tx.draft
 #    --metadata-json-file /out/token_meta.json \
 
@@ -257,13 +284,16 @@ build_raw_tx
 
 sign_tx payment.skey policy.skey
 
+save_policy_if_requested
+
 cat <<EOF
 
 
-      Payment address     : $payment_addr 
-      Destination address : $payment_addr
+      Payment address         : $payment_addr
+      Destination address     : $dest_addr
+      Transaction valid util  : $slot_number
 
-      Send value          : $lovelace_amount+"$token_value"
+      Send value              : $lovelace_amount+"$token_value"
       
 EOF
 
