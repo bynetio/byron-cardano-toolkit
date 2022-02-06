@@ -229,7 +229,7 @@ EOF
         fi
     }
 
-    run_node_helpode_help() {
+    run_node_help() {
 
 
         emit_create_socket_dir() {
