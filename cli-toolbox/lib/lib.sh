@@ -300,7 +300,6 @@ node_cli() {
 	   --name node-cli \
 	   --rm \
 	   --entrypoint cardano-cli \
-	   -e NETWORK=testnet \
 	   -e CARDANO_NODE_SOCKET_PATH=$NODE_CONTAINER_SOCKET_PATH \
 	   -v ${STACK_PREFIX}_node-ipc:/ipc \
 	   -v ${sandbox_dir}:/out \
