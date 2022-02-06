@@ -144,7 +144,7 @@ node_run() {
         | map λ vn . 'if_no_volume $vn docker volume create $vn'
 
     if [[ -z $NODE_SOCKET_DIR ]]; then
-        if_no_volume ${STACK_PREFIX}_node-ipc docker volume create $NODE_IPC_VOLUME_NAME
+        if_no_volume ${STACK_PREFIX}_node-ipc docker volume create ${STACK_PREFIX}_node-ipc
     else
         mkdir -p $NODE_SOCKET_DIR
         if_no_volume ${STACK_PREFIX}_node-ipc \
