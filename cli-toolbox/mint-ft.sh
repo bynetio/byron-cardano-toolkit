@@ -9,7 +9,7 @@ source $dir/lib/lib.sh
 show_help() {
   cat << EOF
 
-  Usage: ${0##*/} -w wallet -u policy-wallet -d dest_addr -t token-name -n token-amount [-v amount_of_lovelase] [-m token-meta-json-path] [-h]
+  Usage: ${0##*/} -w wallet -u policy-wallet -d dest_addr -t token-name -n token-amount [-v amount_of_lovelase] [-m token-meta-json-path] [-b slots] [-h]
 
   Application description.
 
@@ -20,6 +20,7 @@ show_help() {
   -t token-name
   -n token-amount
   -m token-meta-json-path
+  -b slots-after-now          Number of slots since now after which we are not allowed to mint and burn
   -h                          Print this help.
 
 EOF
@@ -34,25 +35,29 @@ dest_addr=
 token_name=
 token_amount=
 token_meta_path=
+slots_after_now=
 
-while getopts ":w:d:m:v:n:t:u:h" opt; do
+while getopts ":w:d:m:v:n:t:u:b:h" opt; do
 
   case $opt in
     v)
       lovelace_amount=$OPTARG
-      ;;  
+      ;;
+    b)
+      slots_after_now=$OPTARG
+      ;;
     d)
       dest_addr=$OPTARG
-      ;; 
+      ;;
     m)
       token_meta_path=$OPTARG
-      ;;    
+      ;;
     n)
       token_amount=$OPTARG
-      ;;    
+      ;;
     t)
       token_name=$OPTARG
-      ;;  
+      ;;
     w)
       wallet=$OPTARG
       payment_addr=$($dir/wallet.sh -a $wallet)
@@ -116,7 +121,37 @@ default_token_meta_json() {
 EOF
 }
 
+gen_multi_policy_script() {
+    local key_hash=$1
+    local slot=$(expr $(get_tip | jq .slot?) + $slots_after_now)
+    cat << EOF
+{
+  "type": "all",
+  "scripts":
+  [
+    {
+      "type": "before",
+      "slot": $slot
+    },
+    {
+      "type": "sig",
+      "keyHash": "$key_hash"
+    }
+  ]
+}
+EOF
+}
+
+
 gen_policy_script() {
+    if [[ -z $slots_after_now ]]; then
+        gen_simple_policy_script "$@"
+    else
+        gen_multi_policy_script "$@"
+    fi
+}
+
+gen_simple_policy_script() {
     local key_hash=$1
     cat << EOF
     {
@@ -166,17 +201,17 @@ build_raw_tx() {
   policy_id=$(cat $sandbox_dir/policy.id)
 
   token_value="$token_amount $policy_id.$token_name"
- 
+
   node_cli transaction build-raw \
     --tx-in "$utxo_in" \
     --tx-out $dest_addr+$lovelace_amount+"$token_value" \
     --tx-out $payment_addr+0 \
     --mint "$token_value" \
     --minting-script-file /out/policy.script \
-    --metadata-json-file /out/token_meta.json \
     --alonzo-era \
     --fee 0 \
     --out-file /out/tx.draft
+#    --metadata-json-file /out/token_meta.json \
 
   node_cli transaction calculate-min-fee \
     --tx-body-file /out/tx.draft \
@@ -197,8 +232,8 @@ build_raw_tx() {
     --fee $fee \
     --mint="$token_value" \
     --minting-script-file /out/policy.script \
-    --metadata-json-file /out/token_meta.json \
-    --out-file /out/tx.draft  
+    --out-file /out/tx.draft
+#    --metadata-json-file /out/token_meta.json \
 
 #   node_cli transaction build \
 #     --tx-in $utxo_in \
@@ -210,7 +245,7 @@ build_raw_tx() {
 #     --change-address $payment_addr $NETWORK \
 #     --out-file /out/tx.draft
 
-  [[ $? -ne 0 ]] && exit 1  
+  [[ $? -ne 0 ]] && exit 1
 
 }
 
