@@ -33,19 +33,19 @@ if_no_volume() {
 if_no_container() {
     local name=$1
     shift
-    ifn "docker ps -q -f name=$name" "$@"
+    ifn "docker ps -q -f name='^$name'" "$@"
 }
 
 if_container_not_running() {
     local name=$1
     shift
-    ifn "docker ps -q -f name=$name -f status=running" "$@"
+    ifn "docker ps -q -f name='^$name' -f status=running" "$@"
 }
 
 if_container_stopped() {
     local name=$1
     shift
-    ift "docker ps -q -f name=$name -f status=exited" "$@"
+    ift "docker ps -q -f name='^$name' -f status=exited" "$@"
 }
 
 db_sync_run() {
