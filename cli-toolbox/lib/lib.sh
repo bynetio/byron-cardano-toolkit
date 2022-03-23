@@ -284,6 +284,10 @@ EOF
         fi
     }
 
+    if [[ ! -z $CARDANO_NODE_SOCKET_DIR ]]; then
+        return
+    fi
+
     if_container_stopped ${STACK_PREFIX}_cardano-node start_node_help  > /dev/tty
 
     if_no_container ${STACK_PREFIX}_cardano-node run_node_help > /dev/tty
@@ -301,7 +305,7 @@ node_cli() {
 	   --rm \
 	   --entrypoint cardano-cli \
 	   -e CARDANO_NODE_SOCKET_PATH=$NODE_CONTAINER_SOCKET_PATH \
-	   -v ${STACK_PREFIX}_node-ipc:/ipc \
+	   -v ${CARDANO_NODE_SOCKET_DIR}:/ipc \
 	   -v ${sandbox_dir}:/out \
 	   $NODE_IMAGE "$@"
 }
