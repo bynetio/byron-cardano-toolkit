@@ -1,16 +1,16 @@
 NETWORK="--testnet-magic 1097911063"
-NODE_IMAGE="inputoutput/cardano-node:1.30.1"
+NODE_IMAGE="inputoutput/cardano-node:1.33.1"
 WALLET_IMAGE="inputoutput/cardano-wallet:2021.9.29"
-DB_SYNC_IMAGE="inputoutput/cardano-db-sync:11.0.4"
+DB_SYNC_IMAGE="inputoutput/cardano-db-sync:12.0.2"
 
 CONFIG_IMAGE="ssledz/cardano-node-config:testnet"
 WALLETS_DIR=/home/ssledz/git/iohk-dev/.cardano-wallets
 SANDBOX_ROOT_DIR=/tmp/cli-toolbox
 
-STACK_PREFIX="testnet"
+STACK_PREFIX="testnet1"
 
-NODE_SOCKET_DIR=$HOME/.cardano-node/node-ipc
-NODE_PORT=3001
+NODE_SOCKET_DIR=$HOME/.cardano-node/$STACK_PREFIX/node-ipc
+NODE_PORT=3011
 NODE_CONTAINER_SOCKET_PATH=/ipc/socket
 
 POSTGRES_IMAGE="postgres:11.5-alpine"

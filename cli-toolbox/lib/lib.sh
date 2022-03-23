@@ -27,32 +27,32 @@ ift() {
 if_no_volume() {
     local name=$1
     shift
-    ifn "docker volume ls -q -f name=$name" "$@"
+    ifn "docker volume ls -q -f name='^$name'" "$@"
 }
 
 if_no_container() {
     local name=$1
     shift
-    ifn "docker ps -q -f name=$name" "$@"
+    ifn "docker ps -q -f name='^$name'" "$@"
 }
 
 if_container_not_running() {
     local name=$1
     shift
-    ifn "docker ps -q -f name=$name -f status=running" "$@"
+    ifn "docker ps -q -f name='^$name' -f status=running" "$@"
 }
 
 if_container_running() {
     local name=$1
     shift
-    ift "docker ps -q -f name=$name -f status=running" "$@"
+    ift "docker ps -q -f name='^$name' -f status=running" "$@"
 }
 
 
 if_container_stopped() {
     local name=$1
     shift
-    ift "docker ps -q -f name=$name -f status=exited" "$@"
+    ift "docker ps -q -f name='^$name' -f status=exited" "$@"
 }
 
 wait_for_psql_ready() {
